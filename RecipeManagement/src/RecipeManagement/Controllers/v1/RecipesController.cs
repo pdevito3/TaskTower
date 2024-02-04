@@ -3,13 +3,16 @@ namespace RecipeManagement.Controllers.v1;
 using RecipeManagement.Domain.Recipes.Features;
 using RecipeManagement.Domain.Recipes.Dtos;
 using RecipeManagement.Wrappers;
-using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Threading.Tasks;
 using System.Threading;
+using Domain;
+using Extensions;
 using MediatR;
+using Newtonsoft.Json;
+using JsonSerializer = System.Text.Json.JsonSerializer;
 
 [ApiController]
 [Route("api/recipes")]
@@ -17,12 +20,14 @@ using MediatR;
 public sealed class RecipesController: ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IJobExecutor _jobExecutor;
 
-    public RecipesController(IMediator mediator)
+    public RecipesController(IMediator mediator, IJobExecutor jobExecutor)
     {
         _mediator = mediator;
+        _jobExecutor = jobExecutor;
     }
-    
+
 
     /// <summary>
     /// Gets a list of all Recipes.
@@ -104,4 +109,109 @@ public sealed class RecipesController: ControllerBase
     }
 
     // endpoint marker - do not delete this comment
+
+    
+    [HttpPost("temp", Name = "SimpleHangfire")]
+    public async Task<ActionResult> SimpleHangfire()
+    {
+        var jobId = await _jobExecutor
+            .Enqueue<SimpleHangfireJob>(x => x.Handle());
+
+        return Ok(jobId);
+    }
+    
+    [HttpPost("looper", Name = "Looper")]
+    public async Task<ActionResult> Looper()
+    {
+        var jobId = await _jobExecutor.Enqueue<LooperJob>(x => x.Handle());
+
+        return Ok(jobId);
+    }
+
+    [HttpPost("tempVolume", Name = "SimpleHangfireVolume")]
+    public async Task<ActionResult> SimpleHangfireVolume()
+    {
+        for (var i = 0; i < 1000; i++)
+        {
+            await _jobExecutor
+                .Enqueue<AnotherSimpleHangfireJob>(x => x.Handle(
+                    new AnotherSimpleHangfireJob.Command(i.ToString()), "i'm static"));
+        }
+
+        return NoContent();
+    }
+    
+    [HttpPost("anothertemp/{message}", Name = "AnotherSimpleHangfire")]
+    public async Task<ActionResult> AnotherSimpleHangfire(string message)
+    {
+        var command = new AnotherSimpleHangfireJob.Command(message);
+        var jobId = await _jobExecutor
+            .Enqueue<AnotherSimpleHangfireJob>(x => x.Handle(command, "i'm static"));
+
+        return Ok(jobId);
+    }
+    
+    // endpoint marker - do not delete this comment
 }
+
+
+public class AnotherSimpleHangfireJob
+{
+    public sealed record Command(string Message);
+    //
+    // [JobDisplayName("Another Simple Hangfire Job")]
+    // [Queue(Consts.HangfireQueues.MySecondQueue)]
+    public void Handle(Command command, string staticString)
+    {
+        // randomly log a message or throw an error
+        var random = new Random();
+        var randomNumber = random.Next(1, 10);
+        if (randomNumber % 2 == 0)
+        {
+            Console.WriteLine($"Another Simple Hangfire Job ({command.Message}) with ({staticString}) - Success");
+        }
+        else
+        {
+            throw new Exception($"Another Simple Hangfire Job ({command.Message}) with ({staticString}) - Error");
+        }
+    }
+}
+public class SimpleHangfireJob
+{
+    // [JobDisplayName("Simple Hangfire Job")]
+    // [Queue(Consts.HangfireQueues.MyFirstQueue)]
+    public void Handle()
+    {
+        // randomly log a message or throw an error
+        var random = new Random();
+        var randomNumber = random.Next(1, 10);
+        if (randomNumber % 2 == 0)
+        {
+            Console.WriteLine("Simple Hangfire Job - Success");
+        }
+        else
+        {
+            throw new Exception("Simple Hangfire Job - Error");
+        }
+    }
+}
+
+public class LooperJob
+{
+    private readonly IJobExecutor _jobExecutor;
+
+    public LooperJob(IJobExecutor jobExecutor)
+    {
+        _jobExecutor = jobExecutor;
+    }
+
+    public async Task Handle()
+    {
+        for (var i = 0; i < 1000; i++)
+        {
+            await _jobExecutor
+                .Enqueue<SimpleHangfireJob>(x => x.Handle());
+        }
+    }
+}
+

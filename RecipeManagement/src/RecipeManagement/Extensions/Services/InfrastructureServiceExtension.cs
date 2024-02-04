@@ -25,10 +25,12 @@ public static class ServiceRegistration
 
         services.AddDbContext<RecipesDbContext>(options =>
             options.UseNpgsql(connectionString,
-                builder => builder.MigrationsAssembly(typeof(RecipesDbContext).Assembly.FullName)));
+                builder => builder.MigrationsAssembly(typeof(RecipesDbContext).Assembly.FullName))
+                .AddInterceptors(new ForUpdateSkipLockedInterceptor()));
 
         services.AddHostedService<MigrationHostedService<RecipesDbContext>>();
-
+        services.AddHostedService<JobPollingService>();
+        
         services.SetupHangfire(env);
 
         // Auth -- Do Not Delete

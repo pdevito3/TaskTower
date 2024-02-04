@@ -1,5 +1,6 @@
 namespace RecipeManagement.Databases;
 
+using System.Data.Common;
 using RecipeManagement.Domain;
 using RecipeManagement.Databases.EntityConfigurations;
 using RecipeManagement.Services;
@@ -11,9 +12,17 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
+using Npgsql;
+using Resources;
 
-public sealed class RecipesDbContext : DbContext
+public interface IJobContext
+{
+    DbSet<Job> Jobs { get; set; }
+}
+
+public sealed class RecipesDbContext : DbContext, IJobContext
 {
     private readonly ICurrentUserService _currentUserService;
     private readonly IMediator _mediator;
@@ -29,6 +38,7 @@ public sealed class RecipesDbContext : DbContext
 
     #region DbSet Region - Do Not Delete
     public DbSet<Recipe> Recipes { get; set; }
+    public DbSet<Job> Jobs { get; set; }
     #endregion DbSet Region - Do Not Delete
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -121,4 +131,79 @@ public static class Extensions
             mutableEntityType.SetQueryFilter(lambdaExpression);
         }
     }
+    
+    public static async Task ListenForNotificationsAsync(
+        this DbContext context, 
+        string channelName, 
+        Action<NpgsqlNotificationEventArgs> onNotificationReceived,
+        CancellationToken cancellationToken = default)
+    {
+        var npgsqlConnection = context.Database.GetDbConnection() as NpgsqlConnection;
+
+        if (npgsqlConnection == null)
+        {
+            throw new InvalidOperationException("The database connection is not a NpgsqlConnection.");
+        }
+
+        // Open the connection if it's not already open
+        if (npgsqlConnection.State != System.Data.ConnectionState.Open)
+        {
+            await npgsqlConnection.OpenAsync(cancellationToken);
+        }
+
+        // Set up the notification event handling
+        npgsqlConnection.Notification += (o, e) => onNotificationReceived(e);
+
+        // Start listening to the specified channel
+        await using (var command = new NpgsqlCommand($"LISTEN {channelName}", npgsqlConnection))
+        {
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // Keep the connection alive, listening for notifications
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await npgsqlConnection.WaitAsync(cancellationToken);
+        }
+    }
+    
+    public static async Task NotifyAsync(
+        this DbContext context, 
+        string channelName, 
+        string payload,
+        CancellationToken cancellationToken = default)
+    {
+        var npgsqlConnection = context.Database.GetDbConnection() as NpgsqlConnection;
+
+        if (npgsqlConnection == null)
+        {
+            throw new InvalidOperationException("The database connection is not a NpgsqlConnection.");
+        }
+
+        // Open the connection if it's not already open
+        if (npgsqlConnection.State != System.Data.ConnectionState.Open)
+        {
+            await npgsqlConnection.OpenAsync(cancellationToken);
+        }
+
+        // Use raw SQL to send a NOTIFY command with the payload
+        await using var command = new NpgsqlCommand($"NOTIFY {channelName}, '{payload}'", npgsqlConnection);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
 }
+
+public class ForUpdateSkipLockedInterceptor : DbCommandInterceptor
+{
+    public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
+    {
+        if (command.CommandText.Contains(Consts.RowLockTag))
+        {
+            command.CommandText += " FOR UPDATE SKIP LOCKED";
+        }
+
+        return base.ReaderExecuting(command, eventData, result);
+    }
+}
+
+
+

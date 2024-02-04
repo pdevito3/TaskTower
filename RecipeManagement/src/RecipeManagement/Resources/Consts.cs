@@ -4,6 +4,8 @@ using System.Reflection;
 
 public static class Consts
 {
+    public const string RowLockTag = "ForUpdateSkipLocked";
+    
     public static class Testing
     {
         public const string IntegrationTestingEnvName = "LocalIntegrationTesting";
