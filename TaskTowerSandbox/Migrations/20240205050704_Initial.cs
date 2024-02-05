@@ -3,10 +3,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace HelloPgPubSub.Migrations
+namespace TaskTowerSandbox.Migrations
 {
     /// <inheritdoc />
-    public partial class initial : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,26 +16,22 @@ namespace HelloPgPubSub.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
+                    fingerprint = table.Column<string>(type: "text", nullable: false),
+                    queue = table.Column<string>(type: "text", nullable: false),
                     status = table.Column<string>(type: "text", nullable: false),
                     payload = table.Column<string>(type: "jsonb", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    retries = table.Column<int>(type: "integer", nullable: false),
+                    max_retries = table.Column<int>(type: "integer", nullable: true),
+                    run_after = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    ran_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    error = table.Column<string>(type: "text", nullable: true),
+                    deadline = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_jobs", x => x.id);
                 });
-
-            migrationBuilder.Sql($@"CREATE OR REPLACE FUNCTION notify_job_available()
-RETURNS trigger AS $$
-BEGIN
-    PERFORM pg_notify('job_available', NEW.id::text);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER job_available_trigger
-    AFTER INSERT ON jobs
-    FOR EACH ROW EXECUTE FUNCTION notify_job_available();");
         }
 
         /// <inheritdoc />

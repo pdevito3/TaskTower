@@ -38,8 +38,21 @@ services:
       POSTGRES_DB: dev_hello_pg_pub_sub
     volumes:
       - hello-pg-pub-sub-data:/var/lib/postgresql/data
+
+  task-tower-sandbox-db:
+    image: postgres
+    restart: always
+    ports:
+      - '41444:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dev_hello_task_tower_sandbox
+    volumes:
+      - task-tower-sandbox-data:/var/lib/postgresql/data
         
 volumes:
   # compose volumes marker - do not delete
   recipemanagement-data:
   hello-pg-pub-sub-data:
+  task-tower-sandbox-data:
