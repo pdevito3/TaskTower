@@ -7,6 +7,7 @@ using TaskTowerSandbox;
 using TaskTowerSandbox.Database;
 using TaskTowerSandbox.Domain.TaskTowerJob;
 using TaskTowerSandbox.Domain.TaskTowerJob.Models;
+using TaskTowerSandbox.Processing;
 
 var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
@@ -26,7 +27,9 @@ builder.Host.UseSerilog();
 builder.Services.AddDbContext<TaskTowerDbContext>(options =>
     options.UseNpgsql(Consts.ConnectionString,
             b => b.MigrationsAssembly(typeof(TaskTowerDbContext).Assembly.FullName))
-        .UseSnakeCaseNamingConvention());
+        .UseSnakeCaseNamingConvention()
+        // .EnableSensitiveDataLogging()
+        .AddInterceptors(new ForUpdateSkipLockedInterceptor()));
 builder.Services.AddHostedService<MigrationHostedService<TaskTowerDbContext>>();
 builder.Services.AddHostedService<JobNotificationListener>();
 

@@ -1,8 +1,11 @@
 namespace TaskTowerSandbox.Database;
 
+using System.Data.Common;
 using Domain.JobStatuses;
 using Domain.TaskTowerJob;
+using EntityConfigurations;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 internal class TaskTowerDbContext(DbContextOptions<TaskTowerDbContext> options)
@@ -17,25 +20,15 @@ internal class TaskTowerDbContext(DbContextOptions<TaskTowerDbContext> options)
     }
 }
 
-internal sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
+public class ForUpdateSkipLockedInterceptor : DbCommandInterceptor
 {
-    public void Configure(EntityTypeBuilder<TaskTowerJob> builder)
+    public override InterceptionResult<DbDataReader> ReaderExecuting(DbCommand command, CommandEventData eventData, InterceptionResult<DbDataReader> result)
     {
-        builder.HasKey(x => x.Id);
-        
-        builder.Property(x => x.Fingerprint).IsRequired();
-        builder.Property(x => x.Queue).IsRequired();
-        builder.Property(x => x.Status)
-            .HasConversion(x => x.Value, x => new JobStatus(x))
-            .IsRequired();
-        builder.Property(x => x.Payload)
-            .HasColumnType("jsonb");
-        builder.Property(x => x.Retries).IsRequired();
-        builder.Property(x => x.MaxRetries).IsRequired(false);
-        builder.Property(x => x.RunAfter).IsRequired();
-        builder.Property(x => x.RanAt).IsRequired(false);
-        builder.Property(x => x.CreatedAt).IsRequired();
-        builder.Property(x => x.Error).IsRequired(false);
-        builder.Property(x => x.Deadline).IsRequired(false);
+        if (command.CommandText.Contains(Consts.RowLockTag))
+        {
+            command.CommandText += " FOR UPDATE SKIP LOCKED";
+        }
+
+        return base.ReaderExecuting(command, eventData, result);
     }
 }

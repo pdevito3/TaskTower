@@ -1,15 +1,17 @@
-namespace TaskTowerSandbox;
+namespace TaskTowerSandbox.Processing;
 
 using System.Threading;
 using System.Threading.Tasks;
 using Dapper;
-using Domain.JobStatuses;
-using Domain.TaskTowerJob;
+using Database;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Serilog;
+using TaskTowerSandbox.Domain.JobStatuses;
+using TaskTowerSandbox.Domain.TaskTowerJob;
 
-public class JobNotificationListener : BackgroundService
+public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -38,7 +40,7 @@ public class JobNotificationListener : BackgroundService
     {
         await using var conn = new NpgsqlConnection(Consts.ConnectionString);
         await conn.OpenAsync(stoppingToken);
-
+        
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
         // Fetch the next available job that is not already locked by another process
@@ -52,7 +54,7 @@ public class JobNotificationListener : BackgroundService
                 LIMIT 1",
             transaction: tx
         );
-
+        
         if (job != null)
         {
             Log.Information($"Processing job {job.Id} with payload {job.Payload}");
@@ -63,7 +65,7 @@ public class JobNotificationListener : BackgroundService
                 transaction: tx
             );
         }
-
+        
         await tx.CommitAsync(stoppingToken);
     }
 }
