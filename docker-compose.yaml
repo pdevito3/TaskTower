@@ -27,7 +27,19 @@ services:
       - "53508:14269"
       - "53509:9411"
 
+  hello-pg-pub-sub-db:
+    image: postgres
+    restart: always
+    ports:
+      - '51554:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dev_hello_pg_pub_sub
+    volumes:
+      - hello-pg-pub-sub-data:/var/lib/postgresql/data
         
 volumes:
   # compose volumes marker - do not delete
   recipemanagement-data:
+  hello-pg-pub-sub-data:
