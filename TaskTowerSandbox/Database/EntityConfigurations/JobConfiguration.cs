@@ -5,7 +5,7 @@ using Domain.TaskTowerJob;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-internal sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
+public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
 {
     public void Configure(EntityTypeBuilder<TaskTowerJob> builder)
     {

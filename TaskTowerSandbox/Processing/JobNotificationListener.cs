@@ -2,10 +2,12 @@ namespace TaskTowerSandbox.Processing;
 
 using System.Threading;
 using System.Threading.Tasks;
+using Configurations;
 using Dapper;
 using Database;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using Serilog;
 using TaskTowerSandbox.Domain.JobStatuses;
@@ -38,6 +40,11 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
 
     private async Task ProcessJob(CancellationToken stoppingToken)
     {
+        // get TaskTowerOptions from Configuration
+        var options = serviceScopeFactory.CreateScope()
+            .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
+        Log.Information("Processing job with options: {@Options}", options);
+        
         await using var conn = new NpgsqlConnection(Consts.ConnectionString);
         await conn.OpenAsync(stoppingToken);
         

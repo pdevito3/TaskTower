@@ -4,6 +4,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
 using TaskTowerSandbox;
+using TaskTowerSandbox.Configurations;
 using TaskTowerSandbox.Database;
 using TaskTowerSandbox.Domain.TaskTowerJob;
 using TaskTowerSandbox.Domain.TaskTowerJob.Models;
@@ -24,14 +25,10 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-builder.Services.AddDbContext<TaskTowerDbContext>(options =>
-    options.UseNpgsql(Consts.ConnectionString,
-            b => b.MigrationsAssembly(typeof(TaskTowerDbContext).Assembly.FullName))
-        .UseSnakeCaseNamingConvention()
-        // .EnableSensitiveDataLogging()
-        .AddInterceptors(new ForUpdateSkipLockedInterceptor()));
-builder.Services.AddHostedService<MigrationHostedService<TaskTowerDbContext>>();
-builder.Services.AddHostedService<JobNotificationListener>();
+builder.Services.AddTaskTower(x =>
+{
+    x.ConnectionString = Consts.ConnectionString;
+});
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

@@ -1,6 +1,6 @@
 namespace TaskTowerSandbox.Domain.TaskTowerJob.Models;
 
-internal record TaskTowerJobForCreation()
+public record TaskTowerJobForCreation()
 {
     public string Queue { get; set; } = null!;
     public string Payload { get; set; } = null!;

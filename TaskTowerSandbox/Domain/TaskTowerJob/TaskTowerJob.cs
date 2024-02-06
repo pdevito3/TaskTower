@@ -3,67 +3,67 @@ namespace TaskTowerSandbox.Domain.TaskTowerJob;
 using JobStatuses;
 using Models;
 
-internal class TaskTowerJob
+public class TaskTowerJob
 {
-    internal Guid Id { get; private set; }
+    public Guid Id { get; private set; }
     
     /// <summary>
     /// An md5 hash of its queue combined with its JSON-serialized payload
     /// </summary>
-    internal string? Fingerprint { get; private set; }
+    public string? Fingerprint { get; private set; }
     
     /// <summary>
     /// The queue the job is on
     /// </summary>
-    internal string Queue { get; private set; } = null!;
+    public string Queue { get; private set; } = null!;
 
     /// <summary>
     /// The current status of the job
     /// </summary>
-    internal JobStatus Status { get; private set; }
+    public JobStatus Status { get; private set; }
     
     /// <summary>
     /// JSON job payload if applicable
     /// </summary>
-    internal string Payload { get; private set; } = null!;
+    public string Payload { get; private set; } = null!;
     
     /// <summary>
     /// The number of times the job has retried
     /// </summary>
-    internal int Retries { get; private set; } = 0;
+    public int Retries { get; private set; } = 0;
     
     /// <summary>
     /// The maximum number of times the job can retry
     /// </summary>
-    internal int? MaxRetries { get; private set; }
+    public int? MaxRetries { get; private set; }
     
     /// <summary>
     /// The time after which the job is eligible to run
     /// </summary>
-    internal DateTimeOffset RunAfter { get; private set; }
+    public DateTimeOffset RunAfter { get; private set; }
     
     /// <summary>
     /// The last time the job was run
     /// </summary>
-    internal DateTimeOffset? RanAt { get; private set; }
+    public DateTimeOffset? RanAt { get; private set; }
     
     /// <summary>
     /// The time the job was created
     /// </summary>
-    internal DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
     
     /// <summary>
     /// The last error the job elicited
     /// </summary>
-    internal string? Error { get; private set; }
+    public string? Error { get; private set; }
     
     /// <summary>
     /// The time after which the job should no longer be run
     /// </summary>
-    internal DateTimeOffset? Deadline { get; private set; }
+    public DateTimeOffset? Deadline { get; private set; }
     
     
-    internal static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
+    public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
         var TaskTowerJob = new TaskTowerJob();
 
@@ -97,40 +97,40 @@ internal class TaskTowerJob
         Fingerprint = BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
     
-    internal TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
+    public TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
     {
         Status = JobStatus.Completed();
         RanAt = ranAt;
         return this;
     }
     
-    internal TaskTowerJob MarkAsFailed(string error)
+    public TaskTowerJob MarkAsFailed(string error)
     {
         Status = JobStatus.Failed();
         Error = error;
         return this;
     }
     
-    internal TaskTowerJob BumpRetry()
+    public TaskTowerJob BumpRetry()
     {
         if (Retries < MaxRetries)
             Retries++;
         return this;
     }
     
-    internal TaskTowerJob ChangeRunAfter(DateTimeOffset runAfter)
+    public TaskTowerJob ChangeRunAfter(DateTimeOffset runAfter)
     {
         RunAfter = runAfter;
         return this;
     }
     
-    internal TaskTowerJob ChangeDeadline(DateTimeOffset? deadline)
+    public TaskTowerJob ChangeDeadline(DateTimeOffset? deadline)
     {
         Deadline = deadline;
         return this;
     }
     
-    internal TaskTowerJob ChangMaxRetries(int maxRetries)
+    public TaskTowerJob ChangMaxRetries(int maxRetries)
     {
         MaxRetries = maxRetries;
         return this;

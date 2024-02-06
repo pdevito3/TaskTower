@@ -8,10 +8,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-internal class TaskTowerDbContext(DbContextOptions<TaskTowerDbContext> options)
+public class TaskTowerDbContext(DbContextOptions<TaskTowerDbContext> options)
     : DbContext(options)
 {
-    internal DbSet<TaskTowerJob> Jobs { get; set; }
+    public DbSet<TaskTowerJob> Jobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
