@@ -17,7 +17,10 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await using var conn = new NpgsqlConnection(Consts.ConnectionString);
+        var options = serviceScopeFactory.CreateScope()
+            .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
+        
+        await using var conn = new NpgsqlConnection(options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
         await using (var cmd = new NpgsqlCommand("LISTEN job_available", conn))
@@ -28,7 +31,7 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
         conn.Notification += async (_, e) =>
         {
             Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
-            await ProcessJob(stoppingToken);
+            await ProcessJob(stoppingToken, options);
         };
 
         while (!stoppingToken.IsCancellationRequested)
@@ -38,14 +41,9 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
         }
     }
 
-    private async Task ProcessJob(CancellationToken stoppingToken)
+    private async Task ProcessJob(CancellationToken stoppingToken, TaskTowerOptions options)
     {
-        // get TaskTowerOptions from Configuration
-        var options = serviceScopeFactory.CreateScope()
-            .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
-        Log.Information("Processing job with options: {@Options}", options);
-        
-        await using var conn = new NpgsqlConnection(Consts.ConnectionString);
+        await using var conn = new NpgsqlConnection(options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);

@@ -25,7 +25,7 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
-builder.Services.AddTaskTower(x =>
+builder.Services.AddTaskTower(builder.Configuration,x =>
 {
     x.ConnectionString = Consts.ConnectionString;
 });

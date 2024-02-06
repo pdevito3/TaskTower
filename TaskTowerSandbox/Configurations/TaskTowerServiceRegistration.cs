@@ -14,17 +14,33 @@ public static class TaskTowerServiceRegistration
     /// <summary>
     /// Adds TaskTower service to the service collection.
     /// </summary>
-    public static IServiceCollection AddTaskTower(this IServiceCollection services, Action<TaskTowerOptions>? configure = null)
+    /// <summary>
+    /// Adds TaskTower service to the service collection.
+    /// </summary>
+    public static IServiceCollection AddTaskTower(this IServiceCollection services, IConfiguration configuration, Action<TaskTowerOptions>? configureOptions = null)
     {
-        // services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
-        var options = new TaskTowerOptions();
-        configure?.Invoke(options);
-        
-        services.AddDbContext<TaskTowerDbContext>(dbOptions =>
+        // Bind TaskTowerOptions from a configuration section and apply additional configurations if provided
+        if (configureOptions != null)
+        {
+            services.Configure<TaskTowerOptions>(options =>
+            {
+                configuration.GetSection("TaskTowerOptions").Bind(options);
+                configureOptions(options);
+            });
+        }
+        else
+        {
+            services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
+        }
+
+        services.AddDbContext<TaskTowerDbContext>((serviceProvider, dbOptions) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
             dbOptions.UseNpgsql(options.ConnectionString, b => b.MigrationsAssembly(typeof(TaskTowerDbContext).Assembly.FullName))
-                .UseSnakeCaseNamingConvention());
+                .UseSnakeCaseNamingConvention();
                 // .EnableSensitiveDataLogging()
                 // .AddInterceptors(new ForUpdateSkipLockedInterceptor()));
+        });
         services.AddHostedService<MigrationHostedService<TaskTowerDbContext>>();
         services.AddHostedService<JobNotificationListener>();
 
