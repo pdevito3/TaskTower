@@ -11,7 +11,6 @@ public class TaskTowerOptions
     /// </summary>
     public int BackendConcurrency { get; set; } = Environment.ProcessorCount;
     
-    // TODO implement this
     /// <summary>
     /// String containing connection details for the backend
     /// </summary>
@@ -41,15 +40,15 @@ public class TaskTowerOptions
     /// </summary>
     public TimeSpan ShutdownTimeout { get; set; }
 
-    // TODO implement this
+    // TODO implement this?
     /// <summary>
     /// Enable synchronous commits (increases durability, decreases performance) when using postgres
     /// </summary>
     public bool SynchronousCommit { get; set; } = false;
     
-    // TODO implement this
+    // TODO implement this?
     /// <summary>
     /// The amount of time to wait for a connection to become available before timing out
     /// </summary>
-    public TimeSpan PGConnectionTimeout { get; set; } = TimeSpan.FromSeconds(30);
+    public TimeSpan PgConnectionTimeout { get; set; } = TimeSpan.FromSeconds(30);
 }
