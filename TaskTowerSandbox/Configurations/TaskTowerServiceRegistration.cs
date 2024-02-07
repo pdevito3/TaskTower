@@ -14,12 +14,8 @@ public static class TaskTowerServiceRegistration
     /// <summary>
     /// Adds TaskTower service to the service collection.
     /// </summary>
-    /// <summary>
-    /// Adds TaskTower service to the service collection.
-    /// </summary>
     public static IServiceCollection AddTaskTower(this IServiceCollection services, IConfiguration configuration, Action<TaskTowerOptions>? configureOptions = null)
     {
-        // Bind TaskTowerOptions from a configuration section and apply additional configurations if provided
         if (configureOptions != null)
         {
             services.Configure<TaskTowerOptions>(options =>
