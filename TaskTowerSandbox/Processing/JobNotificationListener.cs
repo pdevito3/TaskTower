@@ -4,8 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Configurations;
 using Dapper;
-using Database;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -37,7 +35,9 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
             await ProcessJob(stoppingToken, options);
         };
         
-        var pollingInterval = TimeSpan.FromSeconds(2);
+        var pollingInterval = options.JobCheckInterval;
+        Log.ForContext("Polling Interval", pollingInterval)
+            .Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
                 await ProcessScheduledJobs(stoppingToken, options);
@@ -60,35 +60,24 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
     
         var now = DateTimeOffset.UtcNow;
-    
-        // Fetch the next scheduled job that is ready to run and not already locked by another process
-        var scheduledJob = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+        var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
             $@"
-            SELECT id, payload 
-            FROM jobs 
-            WHERE status not in ('{JobStatus.Completed().Value}') 
-              AND run_after <= @Now
-            ORDER BY run_after 
-            FOR UPDATE SKIP LOCKED 
-            LIMIT 1",
+    SELECT id, payload 
+    FROM jobs 
+    WHERE status not in ('{JobStatus.Completed().Value}') 
+      AND run_after <= @Now
+    ORDER BY run_after 
+    FOR UPDATE SKIP LOCKED 
+    LIMIT 100",
             new { Now = now },
             transaction: tx
         );
         
-        Log.Information("scheduledJob: {@ScheduledJob}", scheduledJob);
-        
-        if (scheduledJob != null)
+        // announce the jobs to the job_available channel
+        foreach (var job in scheduledJobs)
         {
-            Log.Information($"Processing scheduled job {scheduledJob.Id} with payload {scheduledJob.Payload}");
-            // Process the job here
-            // Depending on your logic, this might involve executing the job's payload or updating its status in the database
-        
-            // TODO leverage domain for logic
-            var updateResult = await conn.ExecuteAsync(
-                $"UPDATE jobs SET status = '{JobStatus.Completed().Value}', ran_at = @Now WHERE id = @Id",
-                new { Id = scheduledJob.Id, Now = now },
-                transaction: tx
-            );
+            await conn.ExecuteAsync($"SELECT pg_notify('job_available', '{job.Id}')");
+            Log.Information($"Announced job {job.Id} for processing");
         }
     
         await tx.CommitAsync(stoppingToken);
