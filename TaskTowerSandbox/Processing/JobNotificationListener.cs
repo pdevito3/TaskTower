@@ -14,26 +14,28 @@ using TaskTowerSandbox.Domain.TaskTowerJob;
 public class JobNotificationListener : BackgroundService
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
-    private readonly SemaphoreSlim _semaphore; // Semaphore to limit concurrency
-    // options
-    private readonly TaskTowerOptions _options; 
+    private readonly SemaphoreSlim _semaphore;
+    private readonly TaskTowerOptions _options;
 
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory)
     {
         _serviceScopeFactory = serviceScopeFactory;
         
-        var options = _serviceScopeFactory.CreateScope()
+        _options = _serviceScopeFactory.CreateScope()
             .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
-        _semaphore = new SemaphoreSlim(options.BackendConcurrency);
+        
+        if(_options == null)
+            throw new ArgumentNullException("No TaskTowerOptions were found in the service provider");
+        
+        _semaphore = new SemaphoreSlim(_options.BackendConcurrency);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         Log.Information("Task Tower worker is starting");
         using var scope = _serviceScopeFactory.CreateScope();
-        var options = scope.ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
         
-        await using var conn = new NpgsqlConnection(options.ConnectionString);
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
         Log.Information("Subscribing to job_available channel");
@@ -51,7 +53,7 @@ public class JobNotificationListener : BackgroundService
             await _semaphore.WaitAsync(stoppingToken);
             try
             {
-                await ProcessJob(stoppingToken, options);
+                await ProcessJob(stoppingToken);
             }
             finally
             {
@@ -60,7 +62,7 @@ public class JobNotificationListener : BackgroundService
             }
         };
         
-        var pollingInterval = options.JobCheckInterval;
+        var pollingInterval = _options.JobCheckInterval;
         Log.ForContext("Polling Interval", pollingInterval)
             .Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
@@ -68,7 +70,7 @@ public class JobNotificationListener : BackgroundService
                 await _semaphore.WaitAsync(stoppingToken);
                 try
                 {
-                    await ProcessScheduledJobs(stoppingToken, options);
+                    await ProcessScheduledJobs(stoppingToken);
                 }
                 finally
                 {
@@ -84,9 +86,9 @@ public class JobNotificationListener : BackgroundService
         }
     }
     
-    private async Task ProcessScheduledJobs(CancellationToken stoppingToken, TaskTowerOptions options)
+    private async Task ProcessScheduledJobs(CancellationToken stoppingToken)
     {
-        await using var conn = new NpgsqlConnection(options.ConnectionString);
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
     
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
@@ -115,9 +117,9 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
 
-    private async Task ProcessJob(CancellationToken stoppingToken, TaskTowerOptions options)
+    private async Task ProcessJob(CancellationToken stoppingToken)
     {
-        await using var conn = new NpgsqlConnection(options.ConnectionString);
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
