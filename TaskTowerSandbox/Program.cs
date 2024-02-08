@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -73,6 +74,32 @@ app.MapPost("/create-many-jobs", async (HttpContext http, TaskTowerDbContext con
     try
     {
         for (var i = 0; i < 100; i++)
+        {
+            var jobForCreation = new TaskTowerJobForCreation()
+            {
+                Queue = Guid.NewGuid().ToString(),
+                Payload = JsonSerializer.Serialize(Guid.NewGuid())
+            };
+            var job = TaskTowerJob.Create(jobForCreation);
+            context.Jobs.Add(job);
+        }
+        
+        await context.SaveChangesAsync();
+        return Results.Ok(new { Message = $"Jobs created" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+app.MapPost("/create-many-many-jobs", async (HttpContext http, TaskTowerDbContext context) =>
+{
+    try
+    {
+        for (var i = 0; i < 10000; i++)
         {
             var jobForCreation = new TaskTowerJobForCreation()
             {

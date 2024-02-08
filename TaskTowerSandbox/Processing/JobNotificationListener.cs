@@ -11,13 +11,27 @@ using Serilog;
 using TaskTowerSandbox.Domain.JobStatuses;
 using TaskTowerSandbox.Domain.TaskTowerJob;
 
-public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) : BackgroundService
+public class JobNotificationListener : BackgroundService
 {
+    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly SemaphoreSlim _semaphore; // Semaphore to limit concurrency
+    // options
+    private readonly TaskTowerOptions _options; 
+
+    public JobNotificationListener(IServiceScopeFactory serviceScopeFactory)
+    {
+        _serviceScopeFactory = serviceScopeFactory;
+        
+        var options = _serviceScopeFactory.CreateScope()
+            .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
+        _semaphore = new SemaphoreSlim(options.BackendConcurrency);
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         Log.Information("Task Tower worker is starting");
-        var options = serviceScopeFactory.CreateScope()
-            .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
+        using var scope = _serviceScopeFactory.CreateScope();
+        var options = scope.ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
         
         await using var conn = new NpgsqlConnection(options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
@@ -32,7 +46,18 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
         conn.Notification += async (_, e) =>
         {
             Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
-            await ProcessJob(stoppingToken, options);
+
+            // Wait to enter the semaphore before processing a job
+            await _semaphore.WaitAsync(stoppingToken);
+            try
+            {
+                await ProcessJob(stoppingToken, options);
+            }
+            finally
+            {
+                // Ensure the semaphore is always released
+                _semaphore.Release();
+            }
         };
         
         var pollingInterval = options.JobCheckInterval;
@@ -40,10 +65,17 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
             .Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
-                await ProcessScheduledJobs(stoppingToken, options);
+                await _semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    await ProcessScheduledJobs(stoppingToken, options);
+                }
+                finally
+                {
+                    _semaphore.Release();
+                }
             },
             null, TimeSpan.Zero, pollingInterval);
-
         
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -121,6 +153,7 @@ public class JobNotificationListener(IServiceScopeFactory serviceScopeFactory) :
     public override void Dispose()
     {
         Log.Information("Task Tower worker is shutting down");
+        _semaphore.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);
     }
