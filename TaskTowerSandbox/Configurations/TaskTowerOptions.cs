@@ -51,4 +51,10 @@ public class TaskTowerOptions
     /// The amount of time to wait for a connection to become available before timing out
     /// </summary>
     public TimeSpan PgConnectionTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Outlines the queues that will be used along their respective priorities
+    /// </summary>
+    public Dictionary<string, int> QueuePriorities { get; set; } = new Dictionary<string, int>();
+
 }

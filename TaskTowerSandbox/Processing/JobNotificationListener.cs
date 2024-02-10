@@ -55,8 +55,7 @@ public class JobNotificationListener : BackgroundService
 
             if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
             {
-                // Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
-                Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+                // Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
                 
                 // Wait to enter the semaphore before processing a job
                 await _semaphore.WaitAsync(stoppingToken);
@@ -109,12 +108,12 @@ public class JobNotificationListener : BackgroundService
             $@"
     SELECT id, payload 
     FROM jobs 
-    WHERE status not in ('{JobStatus.Completed().Value}') 
+    WHERE status not in (@Status) 
       AND run_after <= @Now
     ORDER BY run_after 
     FOR UPDATE SKIP LOCKED 
     LIMIT 100",
-            new { Now = now },
+            new { Now = now, Status = JobStatus.Completed().Value },
             transaction: tx
         );
         
@@ -125,7 +124,7 @@ public class JobNotificationListener : BackgroundService
                 new { job.Id, job.Queue },
                 transaction: tx
             );
-            Log.Information($"Announced job {job.Id} for processing");
+            Log.Information("Announced job {JobId} to job_available channel", job.Id);
         }
     
         await tx.CommitAsync(stoppingToken);
@@ -141,18 +140,19 @@ public class JobNotificationListener : BackgroundService
         // Fetch the next available job that is not already locked by another process
         var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
             $@"
-                SELECT id, payload
+                SELECT id, payload, queue
                 FROM jobs 
-                WHERE status not in ('{JobStatus.Completed().Value}') 
+                WHERE status not in (@Status) 
                 ORDER BY created_at 
                 FOR UPDATE SKIP LOCKED 
                 LIMIT 1",
+            new { Status = JobStatus.Completed().Value },
             transaction: tx
         );
         
         if (job != null)
         {
-            Log.Information($"Processing job {job.Id} with payload {job.Payload}");
+            Log.Information("Processing job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload); 
             
             // TODO leverage domain for logic
             var now = DateTimeOffset.UtcNow;

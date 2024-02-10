@@ -29,6 +29,12 @@ builder.Host.UseSerilog();
 builder.Services.AddTaskTower(builder.Configuration,x =>
 {
     x.ConnectionString = Consts.ConnectionString;
+    x.QueuePriorities = new Dictionary<string, int>
+    {
+        {"high", 3},
+        {"default", 2},
+        {"low", 1}
+    };
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -137,6 +143,42 @@ app.MapPost("/five-second-delay", async (HttpContext http, TaskTowerDbContext co
         await context.SaveChangesAsync();
 
         return Results.Ok(new { Message = $"Job created with ID: {job.Id}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+app.MapPost("/queued-test", async (HttpContext http, TaskTowerDbContext context) =>
+{
+
+    var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+    {
+        Queue = "high",
+        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+    });
+    var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+    {
+        Queue = "default",
+        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+    });
+    var lowJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+    {
+        Queue = "low",
+        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+    });
+
+    try
+    {
+        context.Jobs.Add(highJob);
+        context.Jobs.Add(defaultJob);
+        context.Jobs.Add(lowJob);
+        await context.SaveChangesAsync();
+
+        return Results.Ok(new { Message = $"queued jobs added" });
     }
     catch (Exception ex)
     {
