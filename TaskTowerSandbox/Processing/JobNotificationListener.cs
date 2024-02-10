@@ -48,18 +48,27 @@ public class JobNotificationListener : BackgroundService
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
         {
-            Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
+            var payload = e.Payload;
+            var parts = payload.Split(new[] { ", ID: " }, StringSplitOptions.None);
+            var queuePart = parts[0].Substring("Queue: ".Length);
+            var idPart = parts.Length > 1 ? parts[1] : string.Empty;
 
-            // Wait to enter the semaphore before processing a job
-            await _semaphore.WaitAsync(stoppingToken);
-            try
+            if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
             {
-                await ProcessAvailableJob(stoppingToken);
-            }
-            finally
-            {
-                // Ensure the semaphore is always released
-                _semaphore.Release();
+                // Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
+                Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+                
+                // Wait to enter the semaphore before processing a job
+                await _semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    await ProcessAvailableJob(stoppingToken);
+                }
+                finally
+                {
+                    // Ensure the semaphore is always released
+                    _semaphore.Release();
+                }
             }
         };
         
@@ -112,7 +121,10 @@ public class JobNotificationListener : BackgroundService
         // announce the jobs to the job_available channel
         foreach (var job in scheduledJobs)
         {
-            await conn.ExecuteAsync($"SELECT pg_notify('job_available', '{job.Id}')");
+            await conn.ExecuteAsync($"SELECT pg_notify('job_available', 'Queue: @Queue, ID: @Id')",
+                new { job.Id, job.Queue },
+                transaction: tx
+            );
             Log.Information($"Announced job {job.Id} for processing");
         }
     

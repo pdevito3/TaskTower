@@ -16,7 +16,7 @@ namespace TaskTowerSandbox.Migrations
             migrationBuilder.Sql($@"CREATE OR REPLACE FUNCTION notify_job_available()
 RETURNS trigger AS $$
 BEGIN
-    PERFORM pg_notify('job_available', NEW.id::text);
+    PERFORM pg_notify('job_available', 'Queue: ' || NEW.queue || ', ID: ' || NEW.id::text);
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
