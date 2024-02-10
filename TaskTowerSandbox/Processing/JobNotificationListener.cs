@@ -44,7 +44,8 @@ public class JobNotificationListener : BackgroundService
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
         Log.Information("Subscribed to job_available channel");
-
+        
+        // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
         {
             Log.Information("Notification received: Job available with ID {JobId}", e.Payload);
@@ -53,7 +54,7 @@ public class JobNotificationListener : BackgroundService
             await _semaphore.WaitAsync(stoppingToken);
             try
             {
-                await ProcessJob(stoppingToken);
+                await ProcessAvailableJob(stoppingToken);
             }
             finally
             {
@@ -62,9 +63,9 @@ public class JobNotificationListener : BackgroundService
             }
         };
         
+        // Configure a timer to poll for scheduled jobs at the specified interval
         var pollingInterval = _options.JobCheckInterval;
-        Log.ForContext("Polling Interval", pollingInterval)
-            .Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
+        Log.Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
                 await _semaphore.WaitAsync(stoppingToken);
@@ -79,6 +80,7 @@ public class JobNotificationListener : BackgroundService
             },
             null, TimeSpan.Zero, pollingInterval);
         
+        // Keep the service running until a cancellation request is received
         while (!stoppingToken.IsCancellationRequested)
         {
             // This call is blocking until a notification is received
@@ -117,7 +119,7 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
 
-    private async Task ProcessJob(CancellationToken stoppingToken)
+    private async Task ProcessAvailableJob(CancellationToken stoppingToken)
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
