@@ -106,7 +106,7 @@ public class JobNotificationListener : BackgroundService
         var now = DateTimeOffset.UtcNow;
         var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
             $@"
-    SELECT id, payload 
+    SELECT id, payload, queue
     FROM jobs 
     WHERE status not in (@Status) 
       AND run_after <= @Now
@@ -117,15 +117,16 @@ public class JobNotificationListener : BackgroundService
             transaction: tx
         );
         
-        // announce the jobs to the job_available channel
         foreach (var job in scheduledJobs)
         {
-            await conn.ExecuteAsync($"SELECT pg_notify('job_available', 'Queue: @Queue, ID: @Id')",
-                new { job.Id, job.Queue },
+            var payload = $"Queue: {job.Queue}, ID: {job.Id}";
+            await conn.ExecuteAsync("SELECT pg_notify('job_available', @Payload)",
+                new { Payload = payload },
                 transaction: tx
             );
-            Log.Information("Announced job {JobId} to job_available channel", job.Id);
+            // Log.Information("Announced job {JobId} to job_available channel for queue {Queue}", job.Id, job.Queue);
         }
+
     
         await tx.CommitAsync(stoppingToken);
     }
