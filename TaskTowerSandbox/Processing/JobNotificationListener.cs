@@ -58,7 +58,7 @@ public class JobNotificationListener : BackgroundService
 
                 if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
                 {
-                    // Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+                    Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
                     
                     // Wait to enter the semaphore before processing a job
                     await _semaphore.WaitAsync(stoppingToken);
@@ -135,12 +135,12 @@ public class JobNotificationListener : BackgroundService
         
         foreach (var enqueuedJob in enqueuedJobs)
         {
-            var notifyPayload = $"Queue: {enqueuedJob.Queue}, ID: {enqueuedJob.Id}";
+            var notifyPayload = $"Queue: {enqueuedJob.Queue}, ID: {enqueuedJob.JobId}";
             await conn.ExecuteAsync("SELECT pg_notify('job_available', @Payload)",
                 new { Payload = notifyPayload },
                 transaction: tx
             );
-            // Log.Information("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
+            Log.Information("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -152,21 +152,10 @@ public class JobNotificationListener : BackgroundService
         await conn.OpenAsync(stoppingToken);
     
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
-    
-        var now = DateTimeOffset.UtcNow;
-        var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
-            $@"
-    SELECT id, queue
-    FROM jobs 
-    WHERE status in (@Status) 
-      AND run_after <= @Now
-    ORDER BY run_after 
-    FOR UPDATE SKIP LOCKED 
-    LIMIT 8000",
-            // TODO add failed
-            new { Now = now, Status = JobStatus.Pending().Value },
-            transaction: tx
-        );
+
+        var queuePrioritization = _options.QueuePrioritization;
+        var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn, tx, 
+            _options.QueuePriorities);
         
         foreach (var job in scheduledJobs)
         {
@@ -175,7 +164,7 @@ public class JobNotificationListener : BackgroundService
                 new { job.Id, job.Queue },
                 transaction: tx
             );
-            // also update job status to processing
+            
             var updateResult = await conn.ExecuteAsync(
                 $"UPDATE jobs SET status = @Status WHERE id = @Id",
                 new { job.Id, Status = JobStatus.Processing().Value },
@@ -194,24 +183,33 @@ public class JobNotificationListener : BackgroundService
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
         // Fetch the next available job that is not already locked by another process
-        var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
-            $@"
-                SELECT id, payload, queue
-                FROM jobs 
-                WHERE status not in (@Status) 
-                ORDER BY created_at 
-                FOR UPDATE SKIP LOCKED 
-                LIMIT 1",
-            new { Status = JobStatus.Completed().Value },
-            transaction: tx
-        );
+        // var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+        //     $@"
+        //         SELECT id, payload, queue
+        //         FROM jobs 
+        //         WHERE status not in (@Status) 
+        //         ORDER BY created_at 
+        //         FOR UPDATE SKIP LOCKED 
+        //         LIMIT 1",
+        //     new { Status = JobStatus.Completed().Value },
+        //     transaction: tx
+        // );
+        
+        var queuePrioritization = _options.QueuePrioritization;
+        var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);
         
         if (job != null)
         {
-            Log.Information("Processing job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload); 
+            var now = DateTimeOffset.UtcNow;
+            
+            Log.Information("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
+            
+            // var delay = new Random().Next(500, 5000);
+            var delay = 0;
+            await Task.Delay(delay, stoppingToken);
+            Log.Information("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o")); 
             
             // TODO leverage domain for logic?
-            var now = DateTimeOffset.UtcNow;
             var updateResult = await conn.ExecuteAsync(
                 $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
                 new { job.Id, Status = JobStatus.Completed().Value, now },

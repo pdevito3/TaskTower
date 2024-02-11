@@ -7,6 +7,7 @@ using Serilog.Sinks.SystemConsole.Themes;
 using TaskTowerSandbox;
 using TaskTowerSandbox.Configurations;
 using TaskTowerSandbox.Database;
+using TaskTowerSandbox.Domain.QueuePrioritizationes;
 using TaskTowerSandbox.Domain.TaskTowerJob;
 using TaskTowerSandbox.Domain.TaskTowerJob.Models;
 using TaskTowerSandbox.Processing;
@@ -35,6 +36,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         {"default", 2},
         {"low", 1}
     };
+    x.QueuePrioritization = QueuePrioritization.Strict();
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -75,15 +77,42 @@ app.MapPost("/create-job", async (JobData request, HttpContext http, TaskTowerDb
     }
 });
 
+app.MapPost("/create-a-few-jobs", async (HttpContext http, TaskTowerDbContext context) =>
+{
+    try
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            var jobForCreation = new TaskTowerJobForCreation()
+            {
+                // Queue = Guid.NewGuid().ToString(),
+                Queue = "default",
+                Payload = JsonSerializer.Serialize(Guid.NewGuid())
+            };
+            var job = TaskTowerJob.Create(jobForCreation);
+            context.Jobs.Add(job);
+        }
+        
+        await context.SaveChangesAsync();
+        return Results.Ok(new { Message = $"Jobs created" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
 app.MapPost("/create-many-jobs", async (HttpContext http, TaskTowerDbContext context) =>
 {
     try
     {
-        for (var i = 0; i < 100; i++)
+        for (var i = 0; i < 500; i++)
         {
             var jobForCreation = new TaskTowerJobForCreation()
             {
-                Queue = Guid.NewGuid().ToString(),
+                Queue = "default",
                 Payload = JsonSerializer.Serialize(Guid.NewGuid())
             };
             var job = TaskTowerJob.Create(jobForCreation);
@@ -185,17 +214,17 @@ app.MapPost("/queued-test", async (HttpContext http, TaskTowerDbContext context)
     var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
     {
         Queue = "high",
-        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+        Payload = JsonSerializer.Serialize("this is a high job")
     });
     var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
     {
         Queue = "default",
-        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+        Payload = JsonSerializer.Serialize("this is a default job")
     });
     var lowJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
     {
         Queue = "low",
-        Payload = JsonSerializer.Serialize(Guid.NewGuid())
+        Payload = JsonSerializer.Serialize("this is a low job")
     });
 
     try
@@ -205,6 +234,52 @@ app.MapPost("/queued-test", async (HttpContext http, TaskTowerDbContext context)
         context.Jobs.Add(lowJob);
         await context.SaveChangesAsync();
 
+        return Results.Ok(new { Message = $"queued jobs added" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+
+app.MapPost("/large-queued-test", async (HttpContext http, TaskTowerDbContext context) =>
+{
+    try
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+            {
+                Queue = "high",
+                Payload = JsonSerializer.Serialize("this is a high job")
+            });
+
+            context.Jobs.Add(highJob);
+        }
+        for (var i = 0; i < 5; i++)
+        {
+            var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+            {
+                Queue = "default",
+                Payload = JsonSerializer.Serialize("this is a default job")
+            });
+            context.Jobs.Add(defaultJob);
+        }
+        
+        for (var i = 0; i < 3; i++)
+        {
+            var lowJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+            {
+                Queue = "low",
+                Payload = JsonSerializer.Serialize("this is a low job")
+            });
+            context.Jobs.Add(lowJob);
+        }
+        
+        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"queued jobs added" });
     }
     catch (Exception ex)

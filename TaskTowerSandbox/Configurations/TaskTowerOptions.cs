@@ -1,5 +1,6 @@
 namespace TaskTowerSandbox.Configurations;
 
+using Domain.QueuePrioritizationes;
 
 public class TaskTowerOptions
 {
@@ -56,4 +57,9 @@ public class TaskTowerOptions
     /// Outlines the queues that will be used along their respective priorities
     /// </summary>
     public Dictionary<string, int> QueuePriorities { get; set; } = new Dictionary<string, int>();
+
+    /// <summary>
+    /// The method of prioritizing jobs in the queue
+    /// </summary>
+    public QueuePrioritization QueuePrioritization { get; set; } = QueuePrioritization.None();
 }
