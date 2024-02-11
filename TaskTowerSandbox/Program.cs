@@ -127,13 +127,13 @@ app.MapPost("/create-many-many-jobs", async (HttpContext http, TaskTowerDbContex
     }
 });
 
-app.MapPost("/five-second-delay", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/two-second-delay", async (HttpContext http, TaskTowerDbContext context) =>
 {
     var jobForCreation = new TaskTowerJobForCreation()
     {
         Queue = Guid.NewGuid().ToString(),
         Payload = JsonSerializer.Serialize(Guid.NewGuid()),
-        RunAfter = DateTimeOffset.UtcNow.AddSeconds(5)
+        RunAfter = DateTimeOffset.UtcNow.AddSeconds(2)
     };
     var job = TaskTowerJob.Create(jobForCreation);
 

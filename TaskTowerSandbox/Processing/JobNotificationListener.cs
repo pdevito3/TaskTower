@@ -48,25 +48,29 @@ public class JobNotificationListener : BackgroundService
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
         {
-            var payload = e.Payload;
-            var parts = payload.Split(new[] { ", ID: " }, StringSplitOptions.None);
-            var queuePart = parts[0].Substring("Queue: ".Length);
-            var idPart = parts.Length > 1 ? parts[1] : string.Empty;
-
-            if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
+            var channel = e.Channel;
+            if (channel == "job_available")
             {
-                // Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
-                
-                // Wait to enter the semaphore before processing a job
-                await _semaphore.WaitAsync(stoppingToken);
-                try
+                var payload = e.Payload;
+                var parts = payload.Split(new[] { ", ID: " }, StringSplitOptions.None);
+                var queuePart = parts[0].Substring("Queue: ".Length);
+                var idPart = parts.Length > 1 ? parts[1] : string.Empty;
+
+                if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
                 {
-                    await ProcessAvailableJob(stoppingToken);
-                }
-                finally
-                {
-                    // Ensure the semaphore is always released
-                    _semaphore.Release();
+                    // Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+                    
+                    // Wait to enter the semaphore before processing a job
+                    await _semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        await ProcessAvailableJob(stoppingToken);
+                    }
+                    finally
+                    {
+                        // Ensure the semaphore is always released
+                        _semaphore.Release();
+                    }
                 }
             }
         };
@@ -88,12 +92,58 @@ public class JobNotificationListener : BackgroundService
             },
             null, TimeSpan.Zero, pollingInterval);
         
+        // poll for enqueued jobs -- this doesn't work great
+        var enqueuedJobsInterval = TimeSpan.FromSeconds(1);
+        Log.Information("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
+        await using var enqueuedJobsTimer = new Timer(async _ =>
+            {
+                await _semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    await AnnounceEnqueuedJobs(stoppingToken);
+                }
+                finally
+                {
+                    _semaphore.Release();
+                }
+            },
+            null, TimeSpan.Zero, enqueuedJobsInterval);
+        
         // Keep the service running until a cancellation request is received
         while (!stoppingToken.IsCancellationRequested)
         {
             // This call is blocking until a notification is received
             await conn.WaitAsync(stoppingToken);
         }
+    }
+    
+    private async Task AnnounceEnqueuedJobs(CancellationToken stoppingToken)
+    {
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
+        await conn.OpenAsync(stoppingToken);
+        
+        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
+        
+        var enqueuedJobs = await conn.QueryAsync<EnqueuedJob>(
+            $@"
+    SELECT job_id as JobId, queue as Queue
+    FROM enqueued_jobs
+    FOR UPDATE SKIP LOCKED 
+    LIMIT 5000",
+            transaction: tx
+        );
+        
+        foreach (var enqueuedJob in enqueuedJobs)
+        {
+            var notifyPayload = $"Queue: {enqueuedJob.Queue}, ID: {enqueuedJob.Id}";
+            await conn.ExecuteAsync("SELECT pg_notify('job_available', @Payload)",
+                new { Payload = notifyPayload },
+                transaction: tx
+            );
+            // Log.Information("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
+        }
+        
+        await tx.CommitAsync(stoppingToken);
     }
     
     private async Task ProcessScheduledJobs(CancellationToken stoppingToken)
@@ -108,25 +158,30 @@ public class JobNotificationListener : BackgroundService
             $@"
     SELECT id, queue
     FROM jobs 
-    WHERE status not in (@Status) 
+    WHERE status in (@Status) 
       AND run_after <= @Now
     ORDER BY run_after 
     FOR UPDATE SKIP LOCKED 
-    LIMIT 5000",
-            new { Now = now, Status = JobStatus.Completed().Value },
+    LIMIT 8000",
+            // TODO add failed
+            new { Now = now, Status = JobStatus.Pending().Value },
             transaction: tx
         );
         
         foreach (var job in scheduledJobs)
         {
-            var notifyPayload = $"Queue: {job.Queue}, ID: {job.Id}";
-            await conn.ExecuteAsync("SELECT pg_notify('job_available', @Payload)",
-                new { Payload = notifyPayload },
+            var insertResult = await conn.ExecuteAsync(
+                "INSERT INTO enqueued_jobs(id, job_id, queue) VALUES (gen_random_uuid(), @Id, @Queue)",
+                new { job.Id, job.Queue },
                 transaction: tx
             );
-            // Log.Information("Announced job {JobId} to job_available channel for queue {Queue}", job.Id, job.Queue);
+            // also update job status to processing
+            var updateResult = await conn.ExecuteAsync(
+                $"UPDATE jobs SET status = @Status WHERE id = @Id",
+                new { job.Id, Status = JobStatus.Processing().Value },
+                transaction: tx
+            );
         }
-
     
         await tx.CommitAsync(stoppingToken);
     }
@@ -162,6 +217,14 @@ public class JobNotificationListener : BackgroundService
                 new { job.Id, now },
                 transaction: tx
             );
+            
+            var deleteEnqueuedJobResult = await conn.ExecuteAsync(
+                "DELETE FROM enqueued_jobs WHERE job_id = @Id",
+                new { job.Id },
+                transaction: tx
+            );
+            
+            // Log.Information("Processed job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload);
         }
         
         await tx.CommitAsync(stoppingToken);

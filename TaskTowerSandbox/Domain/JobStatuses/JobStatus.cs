@@ -28,6 +28,8 @@ public class JobStatus : ValueObject
     public static implicit operator string(JobStatus value) => value.Value;
     public static List<string> ListNames() => JobStatusEnum.List.Select(x => x.Name).ToList();
     public static JobStatus Pending() => new JobStatus(JobStatusEnum.Pending.Name);
+    public static JobStatus Enqueued() => new JobStatus(JobStatusEnum.Enqueued.Name);
+    public static JobStatus Processing() => new JobStatus(JobStatusEnum.Processing.Name);
     public static JobStatus Completed() => new JobStatus(JobStatusEnum.Completed.Name);
     public static JobStatus Failed() => new JobStatus(JobStatusEnum.Failed.Name);
 
@@ -36,6 +38,8 @@ public class JobStatus : ValueObject
     private abstract class JobStatusEnum : SmartEnum<JobStatusEnum>
     {
         public static readonly JobStatusEnum Pending = new PendingType();
+        public static readonly JobStatusEnum Enqueued = new EnqueuedType();
+        public static readonly JobStatusEnum Processing = new ProcessingType();
         public static readonly JobStatusEnum Completed = new CompletedType();
         public static readonly JobStatusEnum Failed = new FailedType();
 
@@ -49,17 +53,31 @@ public class JobStatus : ValueObject
             {
             }
         }
+        
+        private class EnqueuedType : JobStatusEnum
+        {
+            public EnqueuedType() : base("Enqueued", 1)
+            {
+            }
+        }
+        
+        private class ProcessingType : JobStatusEnum
+        {
+            public ProcessingType() : base("Processing", 2)
+            {
+            }
+        }
 
         private class CompletedType : JobStatusEnum
         {
-            public CompletedType() : base("Completed", 1)
+            public CompletedType() : base("Completed", 3)
             {
             }
         }
 
         private class FailedType : JobStatusEnum
         {
-            public FailedType() : base("Failed", 2)
+            public FailedType() : base("Failed", 4)
             {
             }
         }
