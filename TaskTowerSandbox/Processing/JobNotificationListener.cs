@@ -129,7 +129,7 @@ public class JobNotificationListener : BackgroundService
     SELECT job_id as JobId, queue as Queue
     FROM enqueued_jobs
     FOR UPDATE SKIP LOCKED 
-    LIMIT 5000",
+    LIMIT 8000",
             transaction: tx
         );
         
@@ -210,11 +210,11 @@ public class JobNotificationListener : BackgroundService
         {
             Log.Information("Processing job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload); 
             
-            // TODO leverage domain for logic
+            // TODO leverage domain for logic?
             var now = DateTimeOffset.UtcNow;
             var updateResult = await conn.ExecuteAsync(
-                $"UPDATE jobs SET status = '{JobStatus.Completed().Value}', ran_at = @Now WHERE id = @Id",
-                new { job.Id, now },
+                $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+                new { job.Id, Status = JobStatus.Completed().Value, now },
                 transaction: tx
             );
             

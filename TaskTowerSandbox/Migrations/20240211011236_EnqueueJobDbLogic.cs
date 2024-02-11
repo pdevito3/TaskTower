@@ -37,7 +37,7 @@ BEGIN
     
     -- Update status in jobs table
     UPDATE jobs
-    SET status = 'Enqueued'
+    SET status = 'Processing'
     WHERE id = NEW.id;
     
     RETURN NEW;
