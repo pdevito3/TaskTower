@@ -121,6 +121,12 @@ public class JobNotificationListener : BackgroundService
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
+
+        if (_options.IdleTransactionTimeout > 0)
+        {
+            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
+            await cmd.ExecuteNonQueryAsync(stoppingToken);
+        }
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
@@ -150,7 +156,13 @@ public class JobNotificationListener : BackgroundService
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
-    
+
+        if (_options.IdleTransactionTimeout > 0)
+        {
+            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
+            await cmd.ExecuteNonQueryAsync(stoppingToken);
+        }
+        
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
 
         var queuePrioritization = _options.QueuePrioritization;
@@ -177,23 +189,18 @@ public class JobNotificationListener : BackgroundService
 
     private async Task ProcessAvailableJob(CancellationToken stoppingToken)
     {
+        // TODO add connection timeout handling
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
+
+        // TODO add transaction timeout handling
+        if (_options.IdleTransactionTimeout > 0)
+        {
+            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
+            await cmd.ExecuteNonQueryAsync(stoppingToken);
+        }
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
-        
-        // Fetch the next available job that is not already locked by another process
-        // var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
-        //     $@"
-        //         SELECT id, payload, queue
-        //         FROM jobs 
-        //         WHERE status not in (@Status) 
-        //         ORDER BY created_at 
-        //         FOR UPDATE SKIP LOCKED 
-        //         LIMIT 1",
-        //     new { Status = JobStatus.Completed().Value },
-        //     transaction: tx
-        // );
         
         var queuePrioritization = _options.QueuePrioritization;
         var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);

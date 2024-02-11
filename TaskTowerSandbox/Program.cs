@@ -35,8 +35,13 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         {"high", 3},
         {"default", 2},
         {"low", 1}
+        
+        // {"high", 60},
+        // {"default", 30},
+        // {"low", 10}
     };
     x.QueuePrioritization = QueuePrioritization.Strict();
+    x.IdleTransactionTimeout = 1000;
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -249,16 +254,6 @@ app.MapPost("/large-queued-test", async (HttpContext http, TaskTowerDbContext co
 {
     try
     {
-        for (var i = 0; i < 10; i++)
-        {
-            var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-            {
-                Queue = "high",
-                Payload = JsonSerializer.Serialize("this is a high job")
-            });
-
-            context.Jobs.Add(highJob);
-        }
         for (var i = 0; i < 5; i++)
         {
             var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
@@ -277,6 +272,17 @@ app.MapPost("/large-queued-test", async (HttpContext http, TaskTowerDbContext co
                 Payload = JsonSerializer.Serialize("this is a low job")
             });
             context.Jobs.Add(lowJob);
+        }
+        
+        for (var i = 0; i < 10; i++)
+        {
+            var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
+            {
+                Queue = "high",
+                Payload = JsonSerializer.Serialize("this is a high job")
+            });
+
+            context.Jobs.Add(highJob);
         }
         
         await context.SaveChangesAsync();
