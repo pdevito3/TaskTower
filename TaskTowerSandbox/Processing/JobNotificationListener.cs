@@ -83,7 +83,7 @@ public class JobNotificationListener : BackgroundService
                 await _semaphore.WaitAsync(stoppingToken);
                 try
                 {
-                    await ProcessScheduledJobs(stoppingToken);
+                    await EnqueueScheduledJobs(stoppingToken);
                 }
                 finally
                 {
@@ -146,7 +146,7 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
     
-    private async Task ProcessScheduledJobs(CancellationToken stoppingToken)
+    private async Task EnqueueScheduledJobs(CancellationToken stoppingToken)
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
