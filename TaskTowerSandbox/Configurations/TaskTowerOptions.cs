@@ -56,5 +56,4 @@ public class TaskTowerOptions
     /// Outlines the queues that will be used along their respective priorities
     /// </summary>
     public Dictionary<string, int> QueuePriorities { get; set; } = new Dictionary<string, int>();
-
 }

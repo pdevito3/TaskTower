@@ -61,8 +61,10 @@ public class TaskTowerJob
     /// The time after which the job should no longer be run
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
-    
-    
+
+    internal EnqueuedJob? EnqueuedJob { get; } = null!;
+
+
     public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
         var TaskTowerJob = new TaskTowerJob();
