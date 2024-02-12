@@ -32,18 +32,18 @@ public class JobNotificationListener : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Log.Information("Task Tower worker is starting");
+        Log.Debug("Task Tower worker is starting");
         using var scope = _serviceScopeFactory.CreateScope();
         
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
-        Log.Information("Subscribing to job_available channel");
+        Log.Debug("Subscribing to job_available channel");
         await using (var cmd = new NpgsqlCommand("LISTEN job_available", conn))
         {
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
-        Log.Information("Subscribed to job_available channel");
+        Log.Debug("Subscribed to job_available channel");
         
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
@@ -58,7 +58,7 @@ public class JobNotificationListener : BackgroundService
 
                 if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
                 {
-                    Log.Information("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+                    Log.Debug("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
                     
                     // Wait to enter the semaphore before processing a job
                     await _semaphore.WaitAsync(stoppingToken);
@@ -77,7 +77,7 @@ public class JobNotificationListener : BackgroundService
         
         // Configure a timer to poll for scheduled jobs at the specified interval
         var pollingInterval = _options.JobCheckInterval;
-        Log.Information("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
+        Log.Debug("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
                 await _semaphore.WaitAsync(stoppingToken);
@@ -94,7 +94,7 @@ public class JobNotificationListener : BackgroundService
         
         // poll for enqueued jobs -- this doesn't work great
         var enqueuedJobsInterval = TimeSpan.FromSeconds(1);
-        Log.Information("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
+        Log.Debug("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
         await using var enqueuedJobsTimer = new Timer(async _ =>
             {
                 await _semaphore.WaitAsync(stoppingToken);
@@ -146,7 +146,7 @@ public class JobNotificationListener : BackgroundService
                 new { Payload = notifyPayload },
                 transaction: tx
             );
-            Log.Information("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
+            Log.Debug("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -209,12 +209,12 @@ public class JobNotificationListener : BackgroundService
         {
             var now = DateTimeOffset.UtcNow;
             
-            Log.Information("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
+            Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
             
             // var delay = new Random().Next(500, 5000);
             var delay = 0;
             await Task.Delay(delay, stoppingToken);
-            Log.Information("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o")); 
+            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o")); 
             
             // TODO leverage domain for logic?
             var updateResult = await conn.ExecuteAsync(
@@ -229,7 +229,7 @@ public class JobNotificationListener : BackgroundService
                 transaction: tx
             );
             
-            // Log.Information("Processed job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload);
+            // Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -237,7 +237,7 @@ public class JobNotificationListener : BackgroundService
     
     public override void Dispose()
     {
-        Log.Information("Task Tower worker is shutting down");
+        Log.Debug("Task Tower worker is shutting down");
         _semaphore.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);
