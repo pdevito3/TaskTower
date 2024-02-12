@@ -42,7 +42,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         // {"low", 10}
     };
     x.QueuePrioritization = QueuePrioritization.Strict();
-    x.IdleTransactionTimeout = 1000;
+    // x.IdleTransactionTimeout = 1000;
 });
 
 builder.Services.AddEndpointsApiExplorer();
