@@ -282,11 +282,11 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
 
-    private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistoryProcessing, NpgsqlTransaction tx)
+    private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)
     {
         await conn.ExecuteAsync(
             "INSERT INTO run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
-            new { runHistoryProcessing.Id, runHistoryProcessing.JobId, Status = runHistoryProcessing.Status.Value, runHistoryProcessing.Comment, runHistoryProcessing.Details, runHistoryProcessing.OccurredAt },
+            new { runHistory.Id, runHistory.JobId, Status = runHistory.Status.Value, runHistory.Comment, runHistory.Details, runHistory.OccurredAt },
             transaction: tx
         );
     }
