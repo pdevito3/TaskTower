@@ -3,6 +3,7 @@ namespace TaskTowerSandbox.Domain.TaskTowerJob;
 using EnqueuedJobs;
 using JobStatuses;
 using Models;
+using RunHistories;
 
 public class TaskTowerJob
 {
@@ -59,6 +60,9 @@ public class TaskTowerJob
     public DateTimeOffset? Deadline { get; private set; }
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
+    
+    private readonly List<RunHistory> _runHistory = new();
+    internal IReadOnlyCollection<RunHistory> RunHistory => _runHistory.AsReadOnly();
 
 
     public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)

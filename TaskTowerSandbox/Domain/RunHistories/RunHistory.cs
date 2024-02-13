@@ -2,11 +2,13 @@ namespace TaskTowerSandbox.Domain.RunHistories;
 
 using JobStatuses;
 using Models;
+using TaskTowerJob;
 
 public class RunHistory
 {
     public Guid Id { get; private set; }
     public Guid JobId { get; private set; }
+    internal TaskTowerJob Job { get; } = null!;
     public JobStatus Status { get; private set; } = default!;
     public string? Comment { get; private set; }
     public string? Details { get; private set; }

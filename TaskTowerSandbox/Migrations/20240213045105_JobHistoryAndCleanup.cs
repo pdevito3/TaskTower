@@ -37,6 +37,12 @@ namespace TaskTowerSandbox.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("pk_run_histories", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_run_histories_jobs_job_id",
+                        column: x => x.job_id,
+                        principalTable: "jobs",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(

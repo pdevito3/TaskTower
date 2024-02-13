@@ -150,6 +150,7 @@ public class JobNotificationListener : BackgroundService
                 new { Payload = notifyPayload },
                 transaction: tx
             );
+            
             Log.Debug("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
         }
         
@@ -183,9 +184,16 @@ public class JobNotificationListener : BackgroundService
             
             var updateResult = await conn.ExecuteAsync(
                 $"UPDATE jobs SET status = @Status WHERE id = @Id",
-                new { job.Id, Status = JobStatus.Processing().Value },
+                new { job.Id, Status = JobStatus.Enqueued().Value },
                 transaction: tx
             );
+            
+            var runHistory = RunHistory.Create(new RunHistoryForCreation()
+            {
+                JobId = job.Id,
+                Status = JobStatus.Enqueued()
+            });
+            await AddRunHistory(conn, runHistory, tx);
         }
     
         await tx.CommitAsync(stoppingToken);
@@ -217,8 +225,6 @@ public class JobNotificationListener : BackgroundService
                 JobId = job.Id,
                 Status = JobStatus.Processing()
             });
-            // TODO add enqueue history on trigger? and on method
-            
             await AddRunHistory(conn, runHistoryProcessing, tx);
             
             Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
@@ -227,7 +233,7 @@ public class JobNotificationListener : BackgroundService
             var delay = 0;
             await Task.Delay(delay, stoppingToken); 
             
-            var success = new Random().Next(0, 100) < 20;
+            var success = new Random().Next(0, 100) < 70;
             if (success)
             {
                 var updateResult = await conn.ExecuteAsync(

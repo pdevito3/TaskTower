@@ -12,7 +12,7 @@ using TaskTowerSandbox.Database;
 namespace TaskTowerSandbox.Migrations
 {
     [DbContext(typeof(TaskTowerDbContext))]
-    [Migration("20240213041151_JobHistoryAndCleanup")]
+    [Migration("20240213045105_JobHistoryAndCleanup")]
     partial class JobHistoryAndCleanup
     {
         /// <inheritdoc />
@@ -165,9 +165,23 @@ namespace TaskTowerSandbox.Migrations
                     b.Navigation("Job");
                 });
 
+            modelBuilder.Entity("TaskTowerSandbox.Domain.RunHistories.RunHistory", b =>
+                {
+                    b.HasOne("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", "Job")
+                        .WithMany("RunHistory")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_run_histories_jobs_job_id");
+
+                    b.Navigation("Job");
+                });
+
             modelBuilder.Entity("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", b =>
                 {
                     b.Navigation("EnqueuedJob");
+
+                    b.Navigation("RunHistory");
                 });
 #pragma warning restore 612, 618
         }

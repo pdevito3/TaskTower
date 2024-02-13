@@ -39,6 +39,10 @@ BEGIN
     UPDATE jobs
     SET status = 'Processing'
     WHERE id = NEW.id;
+
+    -- add a job history record for enqueuing
+    INSERT INTO run_histories(id, job_id, status, occurred_at)
+    VALUES (gen_random_uuid(), NEW.id, 'Enqueued', NOW());
     
     RETURN NEW;
 END;
