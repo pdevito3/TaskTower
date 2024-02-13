@@ -78,13 +78,12 @@ public class QueuePrioritization : ValueObject
                     $@"
     SELECT id, queue
     FROM jobs 
-    WHERE status in (@Status) 
+    WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
       AND run_after <= @Now
     ORDER BY run_after 
     FOR UPDATE SKIP LOCKED 
     LIMIT 8000",
-                    // TODO add failed
-                    new { Now = now, Status = JobStatus.Pending().Value },
+                    new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
                     transaction: tx
                 );
                 return scheduledJobs;
@@ -105,7 +104,7 @@ public class QueuePrioritization : ValueObject
                 
                 var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                     $@"
-SELECT id, queue, payload
+SELECT id, queue, payload, retries
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
@@ -142,12 +141,12 @@ LIMIT 1",
                     $@"
 SELECT id, queue
 FROM jobs 
-WHERE status in (@Status) 
+WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
 ORDER BY {priorityCaseSql} run_after 
 FOR UPDATE SKIP LOCKED 
 LIMIT 8000",
-                    new { Now = now, Status = JobStatus.Pending().Value },
+                    new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
                     transaction: tx
                 );
 
@@ -192,7 +191,7 @@ LIMIT 1",
                 
                 var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                     $@"
-SELECT id, queue, payload
+SELECT id, queue, payload, retries
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED

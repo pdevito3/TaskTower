@@ -10,6 +10,7 @@ using Npgsql;
 using Serilog;
 using TaskTowerSandbox.Domain.JobStatuses;
 using TaskTowerSandbox.Domain.TaskTowerJob;
+using Utils;
 
 public class JobNotificationListener : BackgroundService
 {
@@ -213,23 +214,41 @@ public class JobNotificationListener : BackgroundService
             
             // var delay = new Random().Next(500, 5000);
             var delay = 0;
-            await Task.Delay(delay, stoppingToken);
-            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o")); 
+            await Task.Delay(delay, stoppingToken); 
             
-            // TODO leverage domain for logic?
-            var updateResult = await conn.ExecuteAsync(
-                $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
-                new { job.Id, Status = JobStatus.Completed().Value, now },
-                transaction: tx
-            );
+            var success = new Random().Next(0, 100) < 20;
+            if (success)
+            {
+                var updateResult = await conn.ExecuteAsync(
+                    $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+                    new { job.Id, Status = JobStatus.Completed().Value, now },
+                    transaction: tx
+                );
+                
+                var deleteEnqueuedJobResult = await conn.ExecuteAsync(
+                    "DELETE FROM enqueued_jobs WHERE job_id = @Id",
+                    new { job.Id },
+                    transaction: tx
+                );
+            }
+            else
+            {
+                var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
+                var updateResult = await conn.ExecuteAsync(
+                    $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1, error = 'some tbd error' WHERE id = @Id",
+                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, now },
+                    transaction: tx
+                );
+                
+                var deleteEnqueuedJobResult = await conn.ExecuteAsync(
+                    "DELETE FROM enqueued_jobs WHERE job_id = @Id",
+                    new { job.Id },
+                    transaction: tx
+                );
+                Log.Debug("Job {JobId} failed", job.Id);
+            }
             
-            var deleteEnqueuedJobResult = await conn.ExecuteAsync(
-                "DELETE FROM enqueued_jobs WHERE job_id = @Id",
-                new { job.Id },
-                transaction: tx
-            );
-            
-            // Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}", job.Id, job.Queue, job.Payload);
+            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o"));
         }
         
         await tx.CommitAsync(stoppingToken);
