@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Configurations;
 using Dapper;
+using Domain.EnqueuedJobs;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;

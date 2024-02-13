@@ -1,5 +1,6 @@
 namespace TaskTowerSandbox.Domain.TaskTowerJob;
 
+using EnqueuedJobs;
 using JobStatuses;
 using Models;
 

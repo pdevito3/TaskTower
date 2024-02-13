@@ -3,6 +3,7 @@ namespace TaskTowerSandbox.Domain.QueuePrioritizationes;
 using System.ComponentModel.DataAnnotations;
 using Ardalis.SmartEnum;
 using Dapper;
+using EnqueuedJobs;
 using JobStatuses;
 using Npgsql;
 using TaskTowerJob;

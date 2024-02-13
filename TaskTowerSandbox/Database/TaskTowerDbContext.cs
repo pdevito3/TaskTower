@@ -1,5 +1,6 @@
 namespace TaskTowerSandbox.Database;
 
+using Domain.EnqueuedJobs;
 using Domain.TaskTowerJob;
 using EntityConfigurations;
 using Microsoft.EntityFrameworkCore;
