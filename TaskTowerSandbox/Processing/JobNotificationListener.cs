@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Configurations;
 using Dapper;
 using Domain.EnqueuedJobs;
+using Domain.RunHistories;
+using Domain.RunHistories.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -210,6 +212,14 @@ public class JobNotificationListener : BackgroundService
         if (job != null)
         {
             var now = DateTimeOffset.UtcNow;
+            var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
+            {
+                JobId = job.Id,
+                Status = JobStatus.Processing()
+            });
+            // TODO add enqueue history on trigger? and on method
+            
+            await AddRunHistory(conn, runHistoryProcessing, tx);
             
             Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
             
@@ -231,12 +241,19 @@ public class JobNotificationListener : BackgroundService
                     new { job.Id },
                     transaction: tx
                 );
+                
+                var runHistory = RunHistory.Create(new RunHistoryForCreation()
+                {
+                    JobId = job.Id,
+                    Status = JobStatus.Completed()
+                });
+                await AddRunHistory(conn, runHistory, tx);
             }
             else
             {
                 var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
                 var updateResult = await conn.ExecuteAsync(
-                    $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1, error = 'some tbd error' WHERE id = @Id",
+                    $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
                     new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, now },
                     transaction: tx
                 );
@@ -246,6 +263,16 @@ public class JobNotificationListener : BackgroundService
                     new { job.Id },
                     transaction: tx
                 );
+                
+                var runHistory = RunHistory.Create(new RunHistoryForCreation()
+                {
+                    JobId = job.Id,
+                    Status = JobStatus.Failed(),
+                    Comment = "some tbd error",
+                    Details = "some tbd details"
+                });
+                await AddRunHistory(conn, runHistory, tx);
+                
                 Log.Debug("Job {JobId} failed", job.Id);
             }
             
@@ -254,7 +281,16 @@ public class JobNotificationListener : BackgroundService
         
         await tx.CommitAsync(stoppingToken);
     }
-    
+
+    private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistoryProcessing, NpgsqlTransaction tx)
+    {
+        await conn.ExecuteAsync(
+            "INSERT INTO run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
+            new { runHistoryProcessing.Id, runHistoryProcessing.JobId, Status = runHistoryProcessing.Status.Value, runHistoryProcessing.Comment, runHistoryProcessing.Details, runHistoryProcessing.OccurredAt },
+            transaction: tx
+        );
+    }
+
     public override void Dispose()
     {
         Log.Debug("Task Tower worker is shutting down");

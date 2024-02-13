@@ -16,7 +16,7 @@ public class TaskTowerJob
     /// <summary>
     /// The queue the job is on
     /// </summary>
-    public string Queue { get; private set; } = null!;
+    public string? Queue { get; private set; }
 
     /// <summary>
     /// The current status of the job
@@ -54,11 +54,6 @@ public class TaskTowerJob
     public DateTimeOffset CreatedAt { get; private set; }
     
     /// <summary>
-    /// The last error the job elicited
-    /// </summary>
-    public string? Error { get; private set; }
-    
-    /// <summary>
     /// The time after which the job should no longer be run
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
@@ -75,7 +70,7 @@ public class TaskTowerJob
         // TODO  default max retries?
         
         TaskTowerJob.Status = JobStatus.Pending();
-        TaskTowerJob.Retries = jobForCreation.Retries;
+        TaskTowerJob.Retries = 0;
         TaskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 20;
         TaskTowerJob.RunAfter = jobForCreation.RunAfter ?? DateTimeOffset.UtcNow;
         TaskTowerJob.Deadline = jobForCreation.Deadline;
@@ -110,7 +105,6 @@ public class TaskTowerJob
     public TaskTowerJob MarkAsFailed(string error)
     {
         Status = JobStatus.Failed();
-        Error = error;
         return this;
     }
     

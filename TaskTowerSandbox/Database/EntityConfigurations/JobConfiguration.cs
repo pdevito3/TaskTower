@@ -12,7 +12,7 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
         builder.HasKey(x => x.Id);
         
         builder.Property(x => x.Fingerprint).IsRequired();
-        builder.Property(x => x.Queue).IsRequired();
+        builder.Property(x => x.Queue).IsRequired(false);
         builder.Property(x => x.Status)
             .HasConversion(x => x.Value, x => new JobStatus(x))
             .IsRequired();
@@ -23,7 +23,9 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
         builder.Property(x => x.RunAfter).IsRequired();
         builder.Property(x => x.RanAt).IsRequired(false);
         builder.Property(x => x.CreatedAt).IsRequired();
-        builder.Property(x => x.Error).IsRequired(false);
         builder.Property(x => x.Deadline).IsRequired(false);
+        
+        builder.HasIndex(x => x.Status);
+        builder.HasIndex(x => x.RunAfter);
     }
 }
