@@ -9,6 +9,7 @@ using Serilog;
 
 public class BackgroundJobClient
 {
+    // TODO take out context here
     public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, TaskTowerDbContext context)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
