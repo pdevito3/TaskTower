@@ -12,7 +12,6 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using Serilog;
 using TaskTowerSandbox.Domain.JobStatuses;
-using TaskTowerSandbox.Domain.TaskTowerJob;
 using Utils;
 
 public class JobNotificationListener : BackgroundService
@@ -42,39 +41,34 @@ public class JobNotificationListener : BackgroundService
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
-        Log.Debug("Subscribing to job_available channel");
-        await using (var cmd = new NpgsqlCommand("LISTEN job_available", conn))
+        Log.Debug($"Subscribing to {Consts.Notifications.JobAvailable} channel");
+        await using (var cmd = new NpgsqlCommand($"LISTEN {Consts.Notifications.JobAvailable}", conn))
         {
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
-        Log.Debug("Subscribed to job_available channel");
+        Log.Debug($"Subscribed to {Consts.Notifications.JobAvailable} channel");
         
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
         {
-            var channel = e.Channel;
-            if (channel == "job_available")
-            {
-                var payload = e.Payload;
-                var parts = payload.Split(new[] { ", ID: " }, StringSplitOptions.None);
-                var queuePart = parts[0].Substring("Queue: ".Length);
-                var idPart = parts.Length > 1 ? parts[1] : string.Empty;
+            // var channel = e.Channel;
+            
+            var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
 
-                if (!string.IsNullOrEmpty(queuePart) && !string.IsNullOrEmpty(idPart))
-                {
-                    Log.Debug("Notification received for queue {Queue} with Job ID {Id}", queuePart, idPart);
+            if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
+            {
+                Log.Debug("Notification received for queue {Queue} with Job ID {Id}", parsedPayload.Queue, parsedPayload.JobId);
                     
-                    // Wait to enter the semaphore before processing a job
-                    await _semaphore.WaitAsync(stoppingToken);
-                    try
-                    {
-                        await ProcessAvailableJob(stoppingToken);
-                    }
-                    finally
-                    {
-                        // Ensure the semaphore is always released
-                        _semaphore.Release();
-                    }
+                // Wait to enter the semaphore before processing a job
+                await _semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    await ProcessAvailableJob(stoppingToken);
+                }
+                finally
+                {
+                    // Ensure the semaphore is always released
+                    _semaphore.Release();
                 }
             }
         };
@@ -96,7 +90,6 @@ public class JobNotificationListener : BackgroundService
             },
             null, TimeSpan.Zero, pollingInterval);
         
-        // poll for enqueued jobs -- this doesn't work great
         var enqueuedJobsInterval = TimeSpan.FromSeconds(1);
         Log.Debug("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
         await using var enqueuedJobsTimer = new Timer(async _ =>
@@ -145,9 +138,9 @@ public class JobNotificationListener : BackgroundService
         
         foreach (var enqueuedJob in enqueuedJobs)
         {
-            var notifyPayload = $"Queue: {enqueuedJob.Queue}, ID: {enqueuedJob.JobId}";
-            await conn.ExecuteAsync("SELECT pg_notify('job_available', @Payload)",
-                new { Payload = notifyPayload },
+            var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.JobId);
+            await conn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
+                new { Notification = Consts.Notifications.JobAvailable, Payload = notifyPayload },
                 transaction: tx
             );
             
