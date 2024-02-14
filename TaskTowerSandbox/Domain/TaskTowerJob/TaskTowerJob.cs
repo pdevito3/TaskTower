@@ -25,6 +25,21 @@ public class TaskTowerJob
     public JobStatus Status { get; private set; }
     
     /// <summary>
+    /// Fully qualified type name
+    /// </summary>
+    public string Type { get; private set; } = null!;
+    
+    /// <summary>
+    /// Method name to invoke
+    /// </summary>
+    public string Method { get; private set; } = null!;
+
+    /// <summary>
+    /// List of fully qualified type names for parameters
+    /// </summary>
+    public string[] ParameterTypes { get; private set; } = Array.Empty<string>();
+    
+    /// <summary>
     /// JSON job payload if applicable
     /// </summary>
     public string Payload { get; private set; } = null!;
@@ -68,10 +83,6 @@ public class TaskTowerJob
     public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
         var TaskTowerJob = new TaskTowerJob();
-
-        // TODO  default queue?
-        // TODO  default retries?
-        // TODO  default max retries?
         
         TaskTowerJob.Status = JobStatus.Pending();
         TaskTowerJob.Retries = 0;
@@ -80,6 +91,9 @@ public class TaskTowerJob
         TaskTowerJob.Deadline = jobForCreation.Deadline;
         TaskTowerJob.CreatedAt = DateTimeOffset.UtcNow;
         
+        TaskTowerJob.Type = jobForCreation.Type;
+        TaskTowerJob.Method = jobForCreation.Method;
+        TaskTowerJob.ParameterTypes = jobForCreation.ParameterTypes ?? Array.Empty<string>();
         TaskTowerJob.Payload = jobForCreation.Payload;
         TaskTowerJob.Queue = jobForCreation.Queue;
         TaskTowerJob.FingerprintJob();

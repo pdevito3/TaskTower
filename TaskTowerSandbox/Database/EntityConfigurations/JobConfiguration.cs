@@ -16,6 +16,10 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
         builder.Property(x => x.Status)
             .HasConversion(x => x.Value, x => new JobStatus(x))
             .IsRequired();
+        builder.Property(x => x.Type).IsRequired();
+        builder.Property(x => x.Method).IsRequired();
+        builder.Property(x => x.ParameterTypes)
+            .HasColumnType("text[]");
         builder.Property(x => x.Payload)
             .HasColumnType("jsonb");
         builder.Property(x => x.Retries).IsRequired();

@@ -10,6 +10,7 @@ using TaskTowerSandbox.Database;
 using TaskTowerSandbox.Domain.QueuePrioritizationes;
 using TaskTowerSandbox.Domain.TaskTowerJob;
 using TaskTowerSandbox.Domain.TaskTowerJob.Models;
+using TaskTowerSandbox.Processing;
 
 var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
@@ -60,19 +61,13 @@ app.MapPost("/create-job", async (JobData request, HttpContext http, TaskTowerDb
         return Results.BadRequest("Invalid job payload.");
     }
 
-    var jobForCreation = new TaskTowerJobForCreation()
-    {
-        Queue = Guid.NewGuid().ToString(),
-        Payload = JsonSerializer.Serialize(request)
-    };
-    var job = TaskTowerJob.Create(jobForCreation);
-
     try
     {
-        context.Jobs.Add(job);
-        await context.SaveChangesAsync();
+        var client = new BackgroundJobClient();
+        var command = new DoAThing.Command(request.Payload);
+        var jobId = await client.Enqueue<DoAThing>(x => x.Handle(command), context);
 
-        return Results.Ok(new { Message = $"Job created with ID: {job.Id}" });
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }
     catch (Exception ex)
     {

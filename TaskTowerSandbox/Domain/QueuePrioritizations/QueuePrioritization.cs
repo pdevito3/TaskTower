@@ -105,7 +105,7 @@ public class QueuePrioritization : ValueObject
                 
                 var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                     $@"
-SELECT id, queue, payload, retries
+SELECT id, queue, payload, retries, type, method, parameter_types, payload
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
@@ -173,13 +173,7 @@ LIMIT 8000",
                     priorityCaseSql =
                         "id"; // Adjust this line according to your table's structure and desired default ordering
                 }
-
-                var sql = $@"
-SELECT job_id as JobId, queue as Queue
-FROM enqueued_jobs
-ORDER BY {priorityCaseSql} DESC
-FOR UPDATE SKIP LOCKED
-LIMIT 1";
+                
                 var enqueuedJob = await conn.QueryFirstOrDefaultAsync<EnqueuedJob>(
                     $@"
 SELECT job_id as JobId, queue as Queue
@@ -192,7 +186,7 @@ LIMIT 1",
                 
                 var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                     $@"
-SELECT id, queue, payload, retries
+SELECT id, queue, payload, retries, type, method, parameter_types, payload
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
