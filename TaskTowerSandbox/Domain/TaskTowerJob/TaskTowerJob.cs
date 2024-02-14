@@ -1,5 +1,6 @@
 namespace TaskTowerSandbox.Domain.TaskTowerJob;
 
+using System.Text.Json;
 using EnqueuedJobs;
 using JobStatuses;
 using Models;
@@ -101,6 +102,72 @@ public class TaskTowerJob
         // TaskTowerJob.QueueDomainEvent(new TaskTowerJobCreated(){ TaskTowerJob = TaskTowerJob });
         
         return TaskTowerJob;
+    }
+    
+    // public async Task Invoke()
+    // {
+    //     if (Status.IsPending())
+    //         Status = JobStatus.Enqueued();
+    //     
+    //     if (Status.IsEnqueued())
+    //         Status = JobStatus.Processing();
+    //     
+    //     if (Status.IsProcessing())
+    //     {
+    //         var runHistory = new RunHistory();
+    //         _runHistory.Add(runHistory);
+    //         // QueueDomainEvent(new TaskTowerJobProcessing(){ TaskTowerJob = this });
+    //         
+    //         try
+    //         {
+    //             // var handler = _serviceProvider.GetRequiredService(Type.GetType(Type));
+    //             // var method = handler.GetType().GetMethod(Method);
+    //             // var parameters = method.GetParameters().Select(x => x.ParameterType).ToArray();
+    //             // var arguments = JsonSerializer.Deserialize(Payload, parameters);
+    //             // var result = await (Task)method.Invoke(handler, arguments);
+    //             // runHistory.MarkCompleted();
+    //             // QueueDomainEvent(new TaskTowerJobCompleted(){ TaskTowerJob = this });
+    //         }
+    //         catch (Exception ex)
+    //         {
+    //             runHistory.MarkAsFailed(ex.Message);
+    //             // QueueDomainEvent(new TaskTowerJobFailed(){ TaskTowerJob = this });
+    //         }
+    //     }
+    // }
+    
+    public async Task Invoke()
+    {
+        var handlerType = System.Type.GetType(Type);
+        if (handlerType == null) throw new InvalidOperationException($"Handler type '{Type}' not found.");
+
+        var method = handlerType.GetMethod(Method);
+        if (method == null) throw new InvalidOperationException($"Method '{Method}' not found in type '{Type}'.");
+
+        // Deserialize the payload into the method's parameters
+        var parameterInfos = method.GetParameters();
+        var parameters = new object[parameterInfos.Length];
+        var arguments = JsonSerializer.Deserialize<object[]>(Payload);
+        if (arguments == null || arguments.Length != parameterInfos.Length)
+            throw new InvalidOperationException("Payload does not match method parameters.");
+
+        for (int i = 0; i < parameterInfos.Length; i++)
+        {
+            var parameterType = parameterInfos[i].ParameterType;
+            parameters[i] = JsonSerializer.Deserialize(JsonSerializer.Serialize(arguments[i]), parameterType);
+        }
+        
+        var handlerInstance = Activator.CreateInstance(handlerType);
+        if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' not found.");
+
+        // Invoke the method
+        var result = method.Invoke(handlerInstance, parameters);
+
+        // Await the result if it's a Task
+        if (result is Task taskResult)
+        {
+            await taskResult;
+        }
     }
     
     private void FingerprintJob()

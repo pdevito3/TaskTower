@@ -219,16 +219,13 @@ public class JobNotificationListener : BackgroundService
                 Status = JobStatus.Processing()
             });
             await AddRunHistory(conn, runHistoryProcessing, tx);
-            
+
             Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
-            
-            // var delay = new Random().Next(500, 5000);
-            var delay = 0;
-            await Task.Delay(delay, stoppingToken); 
-            
-            var success = new Random().Next(0, 100) < 70;
-            if (success)
+
+            try
             {
+                await job.Invoke();
+                
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
                     new { job.Id, Status = JobStatus.Completed().Value, now },
@@ -248,8 +245,9 @@ public class JobNotificationListener : BackgroundService
                 });
                 await AddRunHistory(conn, runHistory, tx);
             }
-            else
+            catch (Exception ex)
             {
+                // TODO try catch this and abstract this to not have a nested try catch
                 var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
@@ -267,15 +265,15 @@ public class JobNotificationListener : BackgroundService
                 {
                     JobId = job.Id,
                     Status = JobStatus.Failed(),
-                    Comment = "some tbd error",
-                    Details = "some tbd details"
+                    Comment = ex.Message,
+                    Details = ex.StackTrace
                 });
                 await AddRunHistory(conn, runHistory, tx);
                 
                 Log.Debug("Job {JobId} failed", job.Id);
             }
             
-            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload} in {Delay}ms, finishing at {Time}", job.Id, job.Queue, job.Payload, delay, DateTimeOffset.UtcNow.ToString("o"));
+            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
         }
         
         await tx.CommitAsync(stoppingToken);

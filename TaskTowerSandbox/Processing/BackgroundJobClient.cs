@@ -41,7 +41,7 @@ public class BackgroundJobClient
             return getter();
         }).ToArray();
 
-        var serializedArguments = System.Text.Json.JsonSerializer.Serialize(arguments);
+        var serializedArguments = JsonSerializer.Serialize(arguments);
 
         var jobForCreation = new TaskTowerJobForCreation()
         {
@@ -57,17 +57,5 @@ public class BackgroundJobClient
         await context.SaveChangesAsync();
 
         return job.Id;
-    }
-}
-
-public class DoAThing
-{
-    // command
-    public sealed record Command(string Data);
-        
-    public async Task Handle(Command request)
-    {
-        await Task.Delay(1000);
-        Log.Information("Handled DoAThing with data: {Data}", request.Data);
     }
 }
