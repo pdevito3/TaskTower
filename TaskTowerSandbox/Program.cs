@@ -55,7 +55,7 @@ app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
 
-app.MapPost("/create-job", async (JobData request, HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/create-job", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
 {
     if (string.IsNullOrWhiteSpace(request.Payload))
     {
@@ -64,9 +64,8 @@ app.MapPost("/create-job", async (JobData request, HttpContext http, TaskTowerDb
 
     try
     {
-        var client = new BackgroundJobClient();
         var command = new DoAThing.Command(request.Payload);
-        var jobId = await client.Enqueue<DoAThing>(x => x.Handle(command), context);
+        var jobId = await client.Enqueue<DoAThing>(x => x.Handle(command));
 
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }

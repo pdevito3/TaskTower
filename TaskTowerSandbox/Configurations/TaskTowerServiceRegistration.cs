@@ -28,7 +28,10 @@ public static class TaskTowerServiceRegistration
         {
             services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
         }
+        
+        services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
 
+        // TODO no more db context
         services.AddDbContext<TaskTowerDbContext>((serviceProvider, dbOptions) =>
         {
             var options = serviceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;

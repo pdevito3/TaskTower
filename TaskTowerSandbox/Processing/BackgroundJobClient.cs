@@ -2,15 +2,31 @@ namespace TaskTowerSandbox.Processing;
 
 using System.Linq.Expressions;
 using System.Text.Json;
-using Database;
+using Configurations;
 using Domain.TaskTowerJob;
 using Domain.TaskTowerJob.Models;
-using Serilog;
+using Npgsql;
+using Dapper;
+using Database;
+using Microsoft.Extensions.Options;
 
-public class BackgroundJobClient
+public interface IBackgroundJobClient
 {
-    // TODO take out context here
-    public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, TaskTowerDbContext context)
+    Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default);
+}
+
+public class BackgroundJobClient : IBackgroundJobClient
+{
+    private readonly IOptions<TaskTowerOptions> _options;
+    private readonly TaskTowerDbContext _dbContext;
+
+    public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext)
+    {
+        _options = options;
+        _dbContext = dbContext;
+    }
+
+    public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null)
@@ -54,8 +70,33 @@ public class BackgroundJobClient
         };
         var job = TaskTowerJob.Create(jobForCreation);
         
-        context.Jobs.Add(job);
-        await context.SaveChangesAsync();
+        // TODO connection string check
+        await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        
+        await conn.ExecuteAsync(
+            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, fingerprint, status, retries) " +
+            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Fingerprint, @Status, @Retries)",
+            new
+            {
+                job.Id,
+                job.Queue,
+                job.Type,
+                job.Method,
+                job.ParameterTypes,
+                Payload = job.Payload,
+                job.MaxRetries,
+                job.RunAfter,
+                job.Deadline,
+                job.CreatedAt,
+                job.Fingerprint,
+                Status = job.Status.Value,
+                job.Retries,
+                job.RanAt
+            });
+        
+        // _dbContext.Jobs.Add(job);
+        // await _dbContext.SaveChangesAsync(cancellationToken);
 
         return job.Id;
     }

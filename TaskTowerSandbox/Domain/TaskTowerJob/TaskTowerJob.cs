@@ -85,6 +85,7 @@ public class TaskTowerJob
     {
         var TaskTowerJob = new TaskTowerJob();
         
+        TaskTowerJob.Id = Guid.NewGuid();
         TaskTowerJob.Status = JobStatus.Pending();
         TaskTowerJob.Retries = 0;
         TaskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 20;
@@ -103,38 +104,6 @@ public class TaskTowerJob
         
         return TaskTowerJob;
     }
-    
-    // public async Task Invoke()
-    // {
-    //     if (Status.IsPending())
-    //         Status = JobStatus.Enqueued();
-    //     
-    //     if (Status.IsEnqueued())
-    //         Status = JobStatus.Processing();
-    //     
-    //     if (Status.IsProcessing())
-    //     {
-    //         var runHistory = new RunHistory();
-    //         _runHistory.Add(runHistory);
-    //         // QueueDomainEvent(new TaskTowerJobProcessing(){ TaskTowerJob = this });
-    //         
-    //         try
-    //         {
-    //             // var handler = _serviceProvider.GetRequiredService(Type.GetType(Type));
-    //             // var method = handler.GetType().GetMethod(Method);
-    //             // var parameters = method.GetParameters().Select(x => x.ParameterType).ToArray();
-    //             // var arguments = JsonSerializer.Deserialize(Payload, parameters);
-    //             // var result = await (Task)method.Invoke(handler, arguments);
-    //             // runHistory.MarkCompleted();
-    //             // QueueDomainEvent(new TaskTowerJobCompleted(){ TaskTowerJob = this });
-    //         }
-    //         catch (Exception ex)
-    //         {
-    //             runHistory.MarkAsFailed(ex.Message);
-    //             // QueueDomainEvent(new TaskTowerJobFailed(){ TaskTowerJob = this });
-    //         }
-    //     }
-    // }
     
     public async Task Invoke()
     {
@@ -160,7 +129,6 @@ public class TaskTowerJob
         var handlerInstance = Activator.CreateInstance(handlerType);
         if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' not found.");
 
-        // Invoke the method
         var result = method.Invoke(handlerInstance, parameters);
 
         // Await the result if it's a Task
