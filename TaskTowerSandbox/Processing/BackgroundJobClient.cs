@@ -15,6 +15,9 @@ public interface IBackgroundJobClient
     Task<Guid> Enqueue(Expression<Action> methodCall, CancellationToken cancellationToken = default);
     Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default);
     Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default);
+    
+    // TODO see if i can get this one working
+    Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
 }
 
 public class BackgroundJobClient : IBackgroundJobClient
@@ -104,6 +107,34 @@ public class BackgroundJobClient : IBackgroundJobClient
         return job.Id;
     }
 
+    public async Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+        
+        // TODO i think this part is done properly, but the invoke on the job is unhappy
+        // var methodCallExpression = methodCall.Body as MethodCallExpression;
+        // if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
+        //
+        // var methodName = GetMethodAndParameterFoundation(methodCallExpression, out var parameterTypes);
+        // var handlerType = ExtractSimpleHandlerType(methodCallExpression, out var handlerTypeName);
+        // var serializedArguments = SerializedArguments(methodCallExpression);
+        //
+        // var queueForThisType = GetQueue(handlerType!);
+        // var jobForCreation = new TaskTowerJobForCreation
+        // {
+        //     Queue = queueForThisType,
+        //     Type = handlerTypeName!,
+        //     Method = methodName,
+        //     ParameterTypes = parameterTypes ?? Array.Empty<string>(),
+        //     Payload = serializedArguments,
+        // };
+        // var job = TaskTowerJob.Create(jobForCreation);
+        //
+        // await CreateJob(job, cancellationToken);
+        //
+        // return job.Id;
+    }
+
     private string? GetQueue(Type handlerType, string? givenQueue = null)
     {
         if (!string.IsNullOrWhiteSpace(givenQueue))
@@ -147,15 +178,26 @@ public class BackgroundJobClient : IBackgroundJobClient
 
     private static string SerializedArguments(MethodCallExpression methodCallExpression)
     {
-        var arguments = methodCallExpression.Arguments.Select(arg =>
-        {
-            var objectMember = Expression.Convert(arg, typeof(object));
-            var getterLambda = Expression.Lambda<Func<object>>(objectMember);
-            var getter = getterLambda.Compile();
-            return getter();
-        }).ToArray();
-
-        var serializedArguments = JsonSerializer.Serialize(arguments);
+        var serializableArguments = methodCallExpression.Arguments
+            .Select(arg =>
+            {
+                // Check if the argument is a lambda expression or a delegate (which cannot be serialized directly)
+                if (arg.NodeType == ExpressionType.Lambda || arg.Type.BaseType == typeof(MulticastDelegate))
+                {
+                    // Handle non-serializable types differently, e.g., by replacing with a placeholder or by excluding from serialization
+                    return null; // Or use a specific placeholder value that indicates a non-serializable argument
+                }
+    
+                // Convert the argument to object and compile the expression to invoke it
+                var objectMember = Expression.Convert(arg, typeof(object));
+                var getterLambda = Expression.Lambda<Func<object>>(objectMember);
+                var getter = getterLambda.Compile();
+                return getter();
+            })
+            .Where(arg => arg != null) // Exclude non-serializable or placeholder values if you choose to use them
+            .ToArray();
+    
+        var serializedArguments = JsonSerializer.Serialize(serializableArguments);
         return serializedArguments;
     }
 
