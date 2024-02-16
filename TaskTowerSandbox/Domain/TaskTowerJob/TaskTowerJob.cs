@@ -1,5 +1,6 @@
 namespace TaskTowerSandbox.Domain.TaskTowerJob;
 
+using System.Reflection;
 using System.Text.Json;
 using EnqueuedJobs;
 using JobStatuses;
@@ -110,28 +111,29 @@ public class TaskTowerJob
         var handlerType = System.Type.GetType(Type);
         if (handlerType == null) throw new InvalidOperationException($"Handler type '{Type}' not found.");
 
-        var method = handlerType.GetMethod(Method);
+        // Deserialize the payload into the method's parameters
+        var arguments = JsonSerializer.Deserialize<object[]>(Payload);
+        if (arguments == null) throw new InvalidOperationException("Payload does not match method parameters.");
+
+        var parameterTypes = arguments.Select(arg => arg.GetType()).ToArray();
+        var method = handlerType.GetMethod(Method, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance, null, parameterTypes, null);
         if (method == null) throw new InvalidOperationException($"Method '{Method}' not found in type '{Type}'.");
 
-        // Deserialize the payload into the method's parameters
-        var parameterInfos = method.GetParameters();
-        var parameters = new object[parameterInfos.Length];
-        var arguments = JsonSerializer.Deserialize<object[]>(Payload);
-        if (arguments == null || arguments.Length != parameterInfos.Length)
-            throw new InvalidOperationException("Payload does not match method parameters.");
-
-        for (int i = 0; i < parameterInfos.Length; i++)
+        var parameters = new object[arguments.Length];
+        for (int i = 0; i < arguments.Length; i++)
         {
-            var parameterType = parameterInfos[i].ParameterType;
+            var parameterType = method.GetParameters()[i].ParameterType;
             parameters[i] = JsonSerializer.Deserialize(JsonSerializer.Serialize(arguments[i]), parameterType);
         }
-        
-        var handlerInstance = Activator.CreateInstance(handlerType);
-        if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' not found.");
+
+        object handlerInstance = null;
+        if (!method.IsStatic)
+        {
+            handlerInstance = Activator.CreateInstance(handlerType);
+            if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' could not be created.");
+        }
 
         var result = method.Invoke(handlerInstance, parameters);
-
-        // Await the result if it's a Task
         if (result is Task taskResult)
         {
             await taskResult;

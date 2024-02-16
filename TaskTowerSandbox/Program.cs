@@ -60,6 +60,21 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
+app.MapPost("/console-log", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+
+        var jobId = await client.Enqueue(() => Console.WriteLine("this is simple"));
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
 
 app.MapPost("/create-job", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
 {
