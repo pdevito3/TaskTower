@@ -115,14 +115,18 @@ public class TaskTowerJob
         var arguments = JsonSerializer.Deserialize<object[]>(Payload);
         if (arguments == null) throw new InvalidOperationException("Payload does not match method parameters.");
 
-        var parameterTypes = arguments.Select(arg => arg.GetType()).ToArray();
-        var method = handlerType.GetMethod(Method, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance, null, parameterTypes, null);
+        // Find the method with matching name and parameter count
+        var methods = handlerType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance)
+            .Where(m => m.Name == Method && m.GetParameters().Length == arguments.Length);
+        var method = methods.FirstOrDefault(); // Consider refining how to select the method if there are overloads
+
         if (method == null) throw new InvalidOperationException($"Method '{Method}' not found in type '{Type}'.");
 
+        var parameterInfos = method.GetParameters();
         var parameters = new object[arguments.Length];
         for (int i = 0; i < arguments.Length; i++)
         {
-            var parameterType = method.GetParameters()[i].ParameterType;
+            var parameterType = parameterInfos[i].ParameterType;
             parameters[i] = JsonSerializer.Deserialize(JsonSerializer.Serialize(arguments[i]), parameterType);
         }
 
@@ -134,6 +138,8 @@ public class TaskTowerJob
         }
 
         var result = method.Invoke(handlerInstance, parameters);
+
+        // Await the result if it's a Task
         if (result is Task taskResult)
         {
             await taskResult;
