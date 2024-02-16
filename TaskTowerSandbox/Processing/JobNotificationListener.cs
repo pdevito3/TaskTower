@@ -271,7 +271,6 @@ public class JobNotificationListener : BackgroundService
                 await AddRunHistory(conn, runHistory, tx);
                 
                 Log.Debug("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
-                throw;
             }
             
             Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
