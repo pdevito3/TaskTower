@@ -76,6 +76,28 @@ app.MapPost("/console-log", async (JobData request, HttpContext http, IBackgroun
     }
 });
 
+app.MapPost("/create-sync-job", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Payload))
+    {
+        return Results.BadRequest("Invalid job payload.");
+    }
+
+    try
+    {
+        var command = new DoASynchronousThing.Command(request.Payload);
+        var jobId = await client.Enqueue<DoASynchronousThing>(x => x.Handle(command));
+
+        return Results.Ok(new { Message = $"Synchronous job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating synchronous job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the synchronous job.");
+    }
+});
+
 app.MapPost("/create-job", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
 {
     if (string.IsNullOrWhiteSpace(request.Payload))

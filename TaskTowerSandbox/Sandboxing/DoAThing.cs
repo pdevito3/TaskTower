@@ -65,3 +65,14 @@ public class DoAPossiblyFailingThing
         }
     }
 }
+
+public class DoASynchronousThing
+{
+    public sealed record Command(string Data);
+    
+    public void Handle(Command command)
+    {
+        // Simulate work
+        Console.WriteLine($"Handled DoASynchronousThing with data: {command.Data}");
+    }
+}
