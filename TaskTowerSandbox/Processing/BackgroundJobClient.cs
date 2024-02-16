@@ -16,6 +16,10 @@ public interface IBackgroundJobClient
     Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default);
     Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default);
     
+    Task<Guid> Enqueue(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default);
+    Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default);
+    Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
+    
     // TODO see if i can get this one working
     Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
 }
@@ -32,20 +36,22 @@ public class BackgroundJobClient : IBackgroundJobClient
     }
 
     public async Task<Guid> Enqueue(Expression<Action> methodCall, CancellationToken cancellationToken = default)
+        => await Enqueue(methodCall, null, cancellationToken);
+    
+    public async Task<Guid> Enqueue(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
-        var methodName = GetMethodAndParameterFoundation(methodCallExpression,
-            out var parameterTypes);
+        var methodName = GetMethodAndParameterFoundation(methodCallExpression, out var parameterTypes);
         var handlerType = ExtractSimpleHandlerType(methodCallExpression, out var handlerTypeName);
         var serializedArguments = SerializedArguments(methodCallExpression!);
 
-        var queueForThisType = GetQueue(handlerType!);
+        var queueForThisType = GetQueue(handlerType!, queue);
         var jobForCreation = new TaskTowerJobForCreation()
         {
             Queue = queueForThisType,
             Type = handlerTypeName!,
-            Method = methodName,
+            Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
@@ -57,21 +63,23 @@ public class BackgroundJobClient : IBackgroundJobClient
     }
 
     public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default)
+        => await Enqueue(methodCall, null, cancellationToken);
+
+    public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
-        var methodName = GetMethodAndParameterFoundation(methodCallExpression,
-            out var parameterTypes);
+        var methodName = GetMethodAndParameterFoundation(methodCallExpression, out var parameterTypes);
         
         var handlerType = ExtractTypedHandler<T>(out var handlerTypeName);
         var serializedArguments = SerializedArguments(methodCallExpression);
 
-        var queueForThisType = GetQueue(handlerType);
+        var queueForThisType = GetQueue(handlerType, queue);
         var jobForCreation = new TaskTowerJobForCreation()
         {
             Queue = queueForThisType,
-            Type = handlerTypeName,
-            Method = methodName,
+            Type = handlerTypeName!,
+            Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
@@ -82,7 +90,11 @@ public class BackgroundJobClient : IBackgroundJobClient
         return job.Id;
     }
     
+    
     public async Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default)
+        => await Enqueue(methodCall, null, cancellationToken);
+    
+    public async Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
@@ -91,12 +103,12 @@ public class BackgroundJobClient : IBackgroundJobClient
         var handlerType = ExtractTypedHandler<T>(out var handlerTypeName);
         var serializedArguments = SerializedArguments(methodCallExpression);
 
-        var queueForThisType = GetQueue(handlerType);
+        var queueForThisType = GetQueue(handlerType, queue);
         var jobForCreation = new TaskTowerJobForCreation
         {
             Queue = queueForThisType,
             Type = handlerTypeName!,
-            Method = methodName,
+            Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
@@ -227,12 +239,16 @@ public class BackgroundJobClient : IBackgroundJobClient
         // Extract the method info
         var method = methodCallExpression.Method;
         var methodName = method.Name;
+        
+        if(methodName == null)
+            throw new InvalidOperationException("Method name is null.");
 
         // Extract the method parameters types
         parameterTypes = method.GetParameters()
             .Select(p => p.ParameterType.AssemblyQualifiedName)
             .Where(p => p != null)
             .ToArray();
+        
         return methodName;
     }
 }
