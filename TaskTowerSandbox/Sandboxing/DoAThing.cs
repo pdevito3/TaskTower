@@ -8,7 +8,40 @@ public class DoAThing
         
     public async Task Handle(Command request)
     {
-        await Task.Delay(1000);
+        // await Task.Delay(1000);
+        Log.Information("Handled DoAThing with data: {Data}", request.Data);
+    }
+}
+
+public class DoADefaultThing
+{
+    public sealed record Command(string Data);
+        
+    public async Task Handle(Command request)
+    {
+        // await Task.Delay(1000);
+        Log.Information("Handled DoAThing with data: {Data}", request.Data);
+    }
+}
+
+public class DoACriticalThing
+{
+    public sealed record Command(string Data);
+        
+    public async Task Handle(Command request)
+    {
+        // await Task.Delay(1000);
+        Log.Information("Handled DoAThing with data: {Data}", request.Data);
+    }
+}
+
+public class DoALowThing
+{
+    public sealed record Command(string Data);
+        
+    public async Task Handle(Command request)
+    {
+        // await Task.Delay(1000);
         Log.Information("Handled DoAThing with data: {Data}", request.Data);
     }
 }

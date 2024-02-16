@@ -97,7 +97,7 @@ public class TaskTowerJob
         TaskTowerJob.Method = jobForCreation.Method;
         TaskTowerJob.ParameterTypes = jobForCreation.ParameterTypes ?? Array.Empty<string>();
         TaskTowerJob.Payload = jobForCreation.Payload;
-        TaskTowerJob.Queue = jobForCreation.Queue;
+        TaskTowerJob.Queue = jobForCreation.Queue ?? "default";
         TaskTowerJob.FingerprintJob();
 
         // TaskTowerJob.QueueDomainEvent(new TaskTowerJobCreated(){ TaskTowerJob = TaskTowerJob });

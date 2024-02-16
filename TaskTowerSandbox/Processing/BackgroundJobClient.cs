@@ -60,9 +60,12 @@ public class BackgroundJobClient : IBackgroundJobClient
 
         var serializedArguments = JsonSerializer.Serialize(arguments);
 
+        var queueAssignments = _options.Value?.QueueAssignments;
+        var queueForThisType = queueAssignments?.FirstOrDefault(qa => qa.Key == handlerType).Value;
+        
         var jobForCreation = new TaskTowerJobForCreation()
         {
-            Queue = Guid.NewGuid().ToString(),
+            Queue = queueForThisType,
             Type = handlerTypeName,
             Method = methodName,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),

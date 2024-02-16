@@ -60,4 +60,9 @@ public class TaskTowerOptions
     /// The method of prioritizing jobs in the queue
     /// </summary>
     public QueuePrioritization QueuePrioritization { get; set; } = QueuePrioritization.None();
+
+    /// <summary>
+    /// A record of the different message types and their respective queues
+    /// </summary>
+    public Dictionary<Type, string> QueueAssignments { get; set; } = new Dictionary<Type, string>();
 }

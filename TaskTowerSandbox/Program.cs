@@ -44,6 +44,12 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     };
     x.QueuePrioritization = QueuePrioritization.Strict();
     // x.IdleTransactionTimeout = 1000;
+    x.QueueAssignments = new Dictionary<Type, string>
+    {
+        {typeof(DoALowThing), "low"},
+        {typeof(DoAPossiblyFailingThing), "critical"},
+        {typeof(DoACriticalThing), "critical"}
+    };
 });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -77,23 +83,16 @@ app.MapPost("/create-job", async (JobData request, HttpContext http, IBackground
     }
 });
 
-app.MapPost("/create-a-few-jobs", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/create-a-few-jobs", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
         for (var i = 0; i < 5; i++)
         {
-            var jobForCreation = new TaskTowerJobForCreation()
-            {
-                // Queue = Guid.NewGuid().ToString(),
-                Queue = "default",
-                Payload = JsonSerializer.Serialize(Guid.NewGuid())
-            };
-            var job = TaskTowerJob.Create(jobForCreation);
-            context.Jobs.Add(job);
+            var command = new DoAThing.Command(Guid.NewGuid().ToString());
+            await client.Enqueue<DoAThing>(x => x.Handle(command));
         }
         
-        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"Jobs created" });
     }
     catch (Exception ex)
@@ -104,22 +103,16 @@ app.MapPost("/create-a-few-jobs", async (HttpContext http, TaskTowerDbContext co
     }
 });
 
-app.MapPost("/create-many-jobs", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/create-many-jobs", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
         for (var i = 0; i < 500; i++)
         {
-            var jobForCreation = new TaskTowerJobForCreation()
-            {
-                Queue = "default",
-                Payload = JsonSerializer.Serialize(Guid.NewGuid())
-            };
-            var job = TaskTowerJob.Create(jobForCreation);
-            context.Jobs.Add(job);
+            var command = new DoAThing.Command(Guid.NewGuid().ToString());
+            await client.Enqueue<DoAThing>(x => x.Handle(command));
         }
         
-        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"Jobs created" });
     }
     catch (Exception ex)
@@ -130,22 +123,16 @@ app.MapPost("/create-many-jobs", async (HttpContext http, TaskTowerDbContext con
     }
 });
 
-app.MapPost("/create-many-many-jobs", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
         for (var i = 0; i < 10000; i++)
         {
-            var jobForCreation = new TaskTowerJobForCreation()
-            {
-                Queue = Guid.NewGuid().ToString(),
-                Payload = JsonSerializer.Serialize(Guid.NewGuid())
-            };
-            var job = TaskTowerJob.Create(jobForCreation);
-            context.Jobs.Add(job);
+            var command = new DoAThing.Command(Guid.NewGuid().ToString());
+            await client.Enqueue<DoAThing>(x => x.Handle(command));
         }
         
-        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"Jobs created" });
     }
     catch (Exception ex)
@@ -208,31 +195,18 @@ app.MapPost("/many-2-second-delay", async (HttpContext http, TaskTowerDbContext 
     }
 });
 
-app.MapPost("/queued-test", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/queued-test", async (HttpContext http, IBackgroundJobClient client) =>
 {
-
-    var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-    {
-        Queue = "high",
-        Payload = JsonSerializer.Serialize("this is a high job")
-    });
-    var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-    {
-        Queue = "default",
-        Payload = JsonSerializer.Serialize("this is a default job")
-    });
-    var lowJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-    {
-        Queue = "low",
-        Payload = JsonSerializer.Serialize("this is a low job")
-    });
-
     try
     {
-        context.Jobs.Add(highJob);
-        context.Jobs.Add(defaultJob);
-        context.Jobs.Add(lowJob);
-        await context.SaveChangesAsync();
+        var criticalCommand = new DoACriticalThing.Command("this is a critical job");
+        await client.Enqueue<DoACriticalThing>(x => x.Handle(criticalCommand));
+    
+        var defaultCommand = new DoADefaultThing.Command("this is a default job");
+        await client.Enqueue<DoADefaultThing>(x => x.Handle(defaultCommand));
+    
+        var lowCommand = new DoALowThing.Command("this is a low job");
+        await client.Enqueue<DoALowThing>(x => x.Handle(lowCommand));
 
         return Results.Ok(new { Message = $"queued jobs added" });
     }
@@ -245,42 +219,28 @@ app.MapPost("/queued-test", async (HttpContext http, TaskTowerDbContext context)
 });
 
 
-app.MapPost("/large-queued-test", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
         for (var i = 0; i < 5; i++)
         {
-            var defaultJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-            {
-                Queue = "default",
-                Payload = JsonSerializer.Serialize("this is a default job")
-            });
-            context.Jobs.Add(defaultJob);
+            var defaultCommand = new DoADefaultThing.Command("this is a default job");
+            await client.Enqueue<DoADefaultThing>(x => x.Handle(defaultCommand));
         }
         
         for (var i = 0; i < 3; i++)
         {
-            var lowJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-            {
-                Queue = "low",
-                Payload = JsonSerializer.Serialize("this is a low job")
-            });
-            context.Jobs.Add(lowJob);
+            var lowCommand = new DoALowThing.Command("this is a low job");
+            await client.Enqueue<DoALowThing>(x => x.Handle(lowCommand));
         }
         
         for (var i = 0; i < 10; i++)
         {
-            var highJob = TaskTowerJob.Create(new TaskTowerJobForCreation()
-            {
-                Queue = "high",
-                Payload = JsonSerializer.Serialize("this is a high job")
-            });
-
-            context.Jobs.Add(highJob);
+            var criticalCommand = new DoACriticalThing.Command("this is a critical job");
+            await client.Enqueue<DoACriticalThing>(x => x.Handle(criticalCommand));
         }
         
-        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"queued jobs added" });
     }
     catch (Exception ex)
