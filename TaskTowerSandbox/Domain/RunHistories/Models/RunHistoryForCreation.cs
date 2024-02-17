@@ -8,4 +8,5 @@ public record RunHistoryForCreation()
     public JobStatus Status { get; set; }
     public string? Comment { get; set; }
     public string? Details { get; set; }
+    public DateTimeOffset? OccurredAt { get; set; }
 }

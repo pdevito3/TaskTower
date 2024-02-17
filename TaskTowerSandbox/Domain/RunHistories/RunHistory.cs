@@ -23,7 +23,7 @@ public class RunHistory
         runHistory.Status = runHistoryForCreation.Status;
         runHistory.Comment = runHistoryForCreation.Comment;
         runHistory.Details = runHistoryForCreation.Details;
-        runHistory.OccurredAt = DateTimeOffset.UtcNow;
+        runHistory.OccurredAt = runHistoryForCreation.OccurredAt ?? DateTimeOffset.UtcNow;
         return runHistory;
     }
 }

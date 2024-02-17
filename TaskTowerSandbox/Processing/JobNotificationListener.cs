@@ -212,23 +212,25 @@ public class JobNotificationListener : BackgroundService
         
         if (job != null)
         {
-            var now = DateTimeOffset.UtcNow;
+            var nowProcessing = DateTimeOffset.UtcNow;
             var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
             {
                 JobId = job.Id,
-                Status = JobStatus.Processing()
+                Status = JobStatus.Processing(),
+                OccurredAt = nowProcessing
             });
             await AddRunHistory(conn, runHistoryProcessing, tx);
 
-            Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, now.ToString("o"));
+            Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
 
             try
             {
                 await job.Invoke();
                 
+                var nowDone = DateTimeOffset.UtcNow;
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Completed().Value, now },
+                    new { job.Id, Status = JobStatus.Completed().Value, nowDone },
                     transaction: tx
                 );
                 
@@ -241,17 +243,18 @@ public class JobNotificationListener : BackgroundService
                 var runHistory = RunHistory.Create(new RunHistoryForCreation()
                 {
                     JobId = job.Id,
-                    Status = JobStatus.Completed()
+                    Status = JobStatus.Completed(),
+                    OccurredAt = nowDone
                 });
                 await AddRunHistory(conn, runHistory, tx);
             }
             catch (Exception ex)
             {
-                // TODO try catch this and abstract this to not have a nested try catch
+                var nowFailed = DateTimeOffset.UtcNow;
                 var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, now },
+                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, now = nowFailed },
                     transaction: tx
                 );
                 
@@ -266,7 +269,8 @@ public class JobNotificationListener : BackgroundService
                     JobId = job.Id,
                     Status = JobStatus.Failed(),
                     Comment = ex.Message,
-                    Details = ex.StackTrace
+                    Details = ex.StackTrace,
+                    OccurredAt = nowFailed
                 });
                 await AddRunHistory(conn, runHistory, tx);
                 
