@@ -201,22 +201,15 @@ app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobCli
     }
 });
 
-app.MapPost("/two-second-delay", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/two-second-delay", async (HttpContext http, IBackgroundJobClient client) =>
 {
-    var jobForCreation = new TaskTowerJobForCreation()
-    {
-        Queue = Guid.NewGuid().ToString(),
-        Payload = JsonSerializer.Serialize(Guid.NewGuid()),
-        RunAfter = DateTimeOffset.UtcNow.AddSeconds(2)
-    };
-    var job = TaskTowerJob.Create(jobForCreation);
-
     try
     {
-        context.Jobs.Add(job);
-        await context.SaveChangesAsync();
+        var jobId = await client.Schedule<DoAThing>(x => 
+            x.Handle(new DoAThing.Command("this is a scheduled job")), 
+            TimeSpan.FromSeconds(2));
 
-        return Results.Ok(new { Message = $"Job created with ID: {job.Id}" });
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }
     catch (Exception ex)
     {
@@ -226,23 +219,17 @@ app.MapPost("/two-second-delay", async (HttpContext http, TaskTowerDbContext con
     }
 });
 
-app.MapPost("/many-2-second-delay", async (HttpContext http, TaskTowerDbContext context) =>
+app.MapPost("/many-2-second-delay", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
         for (var i = 0; i < 5000; i++)
         {
-            var jobForCreation = new TaskTowerJobForCreation()
-            {
-                Queue = Guid.NewGuid().ToString(),
-                Payload = JsonSerializer.Serialize(Guid.NewGuid()),
-                RunAfter = DateTimeOffset.UtcNow.AddSeconds(2)
-            };
-            var job = TaskTowerJob.Create(jobForCreation);
-            context.Jobs.Add(job);
+            await client.Schedule<DoAThing>(x => 
+                x.Handle(new DoAThing.Command("this is a scheduled job")), 
+                TimeSpan.FromSeconds(2));
         }
         
-        await context.SaveChangesAsync();
         return Results.Ok(new { Message = $"Jobs created" });
     }
     catch (Exception ex)

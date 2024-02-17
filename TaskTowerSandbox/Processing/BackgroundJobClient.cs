@@ -20,8 +20,19 @@ public interface IBackgroundJobClient
     Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default);
     Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
     
+    Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
+    
+    
+    Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
+    
     // TODO see if i can get this one working
-    Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
+    // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
+    // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
+    // Task<Guid> Schedule(Expression<Func<Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
 }
 
 public class BackgroundJobClient : IBackgroundJobClient
@@ -36,9 +47,15 @@ public class BackgroundJobClient : IBackgroundJobClient
     }
 
     public async Task<Guid> Enqueue(Expression<Action> methodCall, CancellationToken cancellationToken = default)
-        => await Enqueue(methodCall, null, cancellationToken);
-    
+        => await ScheduleJob(methodCall, null, null, cancellationToken);
     public async Task<Guid> Enqueue(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, null, queue, cancellationToken);
+    public async Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, null, cancellationToken);
+    public async Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, queue, cancellationToken);
+    
+    private async Task<Guid> ScheduleJob(Expression<Action> methodCall, TimeSpan? delay, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
@@ -55,6 +72,11 @@ public class BackgroundJobClient : IBackgroundJobClient
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
+        if (delay.HasValue)
+        {
+            jobForCreation.RunAfter = DateTimeOffset.UtcNow.Add(delay.Value);
+        }
+        
         var job = TaskTowerJob.Create(jobForCreation);
 
         await CreateJob(job, cancellationToken);
@@ -63,9 +85,15 @@ public class BackgroundJobClient : IBackgroundJobClient
     }
 
     public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default)
-        => await Enqueue(methodCall, null, cancellationToken);
-
+        => await ScheduleJob(methodCall, null, null, cancellationToken);
     public async Task<Guid> Enqueue<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, null, queue, cancellationToken);
+    public async Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, null, cancellationToken);
+    public async Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, queue, cancellationToken);
+    
+    private async Task<Guid> ScheduleJob<T>(Expression<Func<T, Task>> methodCall, TimeSpan? delay, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
@@ -83,6 +111,11 @@ public class BackgroundJobClient : IBackgroundJobClient
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
+        if (delay.HasValue)
+        {
+            jobForCreation.RunAfter = DateTimeOffset.UtcNow.Add(delay.Value);
+        }
+        
         var job = TaskTowerJob.Create(jobForCreation);
         
         await CreateJob(job, cancellationToken);
@@ -90,11 +123,16 @@ public class BackgroundJobClient : IBackgroundJobClient
         return job.Id;
     }
     
-    
     public async Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default)
-        => await Enqueue(methodCall, null, cancellationToken);
-    
+        => await ScheduleJob(methodCall, null, null, cancellationToken);
     public async Task<Guid> Enqueue<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, null, queue, cancellationToken);
+    public async Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, null, cancellationToken);
+    public async Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default)
+        => await ScheduleJob(methodCall, delay, queue, cancellationToken);
+    
+    private async Task<Guid> ScheduleJob<T>(Expression<Action<T>> methodCall, TimeSpan? delay, string? queue, CancellationToken cancellationToken = default)
     {
         var methodCallExpression = methodCall.Body as MethodCallExpression;
         if (methodCallExpression == null) throw new InvalidOperationException("Expression body is not a method call.");
@@ -112,6 +150,12 @@ public class BackgroundJobClient : IBackgroundJobClient
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
         };
+        
+        if (delay.HasValue)
+        {
+            jobForCreation.RunAfter = DateTimeOffset.UtcNow.Add(delay.Value);
+        }
+        
         var job = TaskTowerJob.Create(jobForCreation);
 
         await CreateJob(job, cancellationToken);
