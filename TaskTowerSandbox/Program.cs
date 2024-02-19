@@ -40,7 +40,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     x.ConnectionString = Consts.ConnectionString;
     x.QueuePriorities = new Dictionary<string, int>
     {
-        {"high", 3},
+        {"critical", 3},
         {"default", 2},
         {"low", 1}
         
