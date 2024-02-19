@@ -317,26 +317,44 @@ app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient 
 {
     try
     {
-        for (var i = 0; i < 5; i++)
-        {
-            var defaultCommand = new DoADefaultThing.Command("this is a default job");
-            await client.Enqueue<DoADefaultThing>(x => x.Handle(defaultCommand));
-        }
         
-        for (var i = 0; i < 3; i++)
+        
+        for (var i = 0; i < 300; i++)
         {
             var lowCommand = new DoALowThing.Command("this is a low job");
-            await client.Enqueue<DoALowThing>(x => x.Handle(lowCommand));
+            await client.Schedule<DoALowThing>(x => x.Handle(lowCommand), 
+                TimeSpan.FromSeconds(2));
         }
-        
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < 100; i++)
         {
             var criticalCommand = new DoACriticalThing.Command("this is a critical job");
-            await client.Enqueue<DoACriticalThing>(x => x.Handle(criticalCommand));
+            await client.Schedule<DoACriticalThing>(x => x.Handle(criticalCommand), 
+                TimeSpan.FromSeconds(2));
+        }
+        for (var i = 0; i < 100; i++)
+        {
+            var defaultCommand = new DoADefaultThing.Command("this is a default job");
+            await client.Schedule<DoADefaultThing>(x => x.Handle(defaultCommand), 
+                TimeSpan.FromSeconds(2));
+        }
+        
+        for (var i = 0; i < 100; i++)
+        {
+            var criticalCommand = new DoACriticalThing.Command("this is a critical job");
+            await client.Schedule<DoACriticalThing>(x => x.Handle(criticalCommand), 
+                TimeSpan.FromSeconds(2));
+        }
+        
+        for (var i = 0; i < 300; i++)
+        {
+            var lowCommand = new DoALowThing.Command("this is a low job");
+            await client.Schedule<DoALowThing>(x => x.Handle(lowCommand), 
+                TimeSpan.FromSeconds(2));
         }
         
         return Results.Ok(new { Message = $"queued jobs added" });
     }
+
     catch (Exception ex)
     {
         var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
