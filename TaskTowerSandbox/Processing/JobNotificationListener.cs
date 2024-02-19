@@ -206,30 +206,27 @@ public class JobNotificationListener : BackgroundService
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
         
-        await using var txProcessing = await conn.BeginTransactionAsync(stoppingToken);
-        
+        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         var queuePrioritization = _options.QueuePrioritization;
-        var job = await queuePrioritization.GetJobToRun(conn, txProcessing, _options.QueuePriorities);
+        var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);
         
         if (job != null)
         {
             var nowProcessing = DateTimeOffset.UtcNow;
-            var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
-            {
-                JobId = job.Id,
-                Status = JobStatus.Processing(),
-                OccurredAt = nowProcessing
-            });
-            await AddRunHistory(conn, runHistoryProcessing, txProcessing);
-            await txProcessing.CommitAsync(stoppingToken);
 
             Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
 
             try
             {
                 await job.Invoke(serviceProvider);
+                var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
+                {
+                    JobId = job.Id,
+                    Status = JobStatus.Processing(),
+                    OccurredAt = nowProcessing
+                });
+                await AddRunHistory(conn, runHistoryProcessing, tx);
                 
-                await using var tx = await conn.BeginTransactionAsync(stoppingToken);
                 var nowDone = DateTimeOffset.UtcNow;
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
@@ -250,11 +247,9 @@ public class JobNotificationListener : BackgroundService
                     OccurredAt = nowDone
                 });
                 await AddRunHistory(conn, runHistory, tx);
-                await tx.CommitAsync(stoppingToken);
             }
             catch (Exception ex)
             {
-                await using var tx = await conn.BeginTransactionAsync(stoppingToken);
                 var nowFailed = DateTimeOffset.UtcNow;
                 var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
                 var updateResult = await conn.ExecuteAsync(
@@ -278,10 +273,10 @@ public class JobNotificationListener : BackgroundService
                     OccurredAt = nowFailed
                 });
                 await AddRunHistory(conn, runHistory, tx);
-                await tx.CommitAsync(stoppingToken);
                 
                 Log.Error("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
             }
+            await tx.CommitAsync(stoppingToken);
             
             Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
         }
