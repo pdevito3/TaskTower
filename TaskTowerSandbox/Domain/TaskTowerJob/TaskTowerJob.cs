@@ -106,7 +106,7 @@ public class TaskTowerJob
         return TaskTowerJob;
     }
     
-    public async Task Invoke()
+    public async Task Invoke(IServiceProvider serviceProvider)
     {
         var handlerType = System.Type.GetType(Type);
         if (handlerType == null) throw new InvalidOperationException($"Handler type '{Type}' not found.");
@@ -130,7 +130,7 @@ public class TaskTowerJob
         }
         else
         {
-            await NormalInvoke(handlerType, method);
+            await NormalInvoke(handlerType, method, serviceProvider);
         }
     }
     
@@ -161,7 +161,7 @@ public class TaskTowerJob
         }
     }
     
-    private async Task NormalInvoke(Type handlerType, MethodInfo method)
+    private async Task NormalInvoke(Type handlerType, MethodInfo method, IServiceProvider serviceProvider)
     {
         // Deserialize the payload into the method's parameters
         var parameterInfos = method.GetParameters();
@@ -176,8 +176,31 @@ public class TaskTowerJob
             parameters[i] = JsonSerializer.Deserialize(JsonSerializer.Serialize(arguments[i]), parameterType);
         }
         
-        var handlerInstance = Activator.CreateInstance(handlerType);
-        if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' not found.");
+        var handlerInstance = ActivatorUtilities.CreateInstance(serviceProvider, handlerType);
+        if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' could not be created.");
+        
+        // Get the constructor of the handler type
+        // var constructorInfo = handlerType.GetConstructors().FirstOrDefault();
+        // if (constructorInfo == null)
+        //     throw new InvalidOperationException($"No constructor found for type '{handlerType}'.");
+        //
+        // // Resolve constructor parameters from the service provider
+        // var constructorParameters = constructorInfo.GetParameters();
+        // var args = new object[constructorParameters.Length];
+        // for (int i = 0; i < constructorParameters.Length; i++)
+        // {
+        //     var serviceType = constructorParameters[i].ParameterType;
+        //     var service = serviceProvider.GetService(serviceType);
+        //     if (service == null)
+        //         throw new InvalidOperationException($"Service for type '{serviceType}' not found.");
+        //     args[i] = service;
+        // }
+        //
+        // // Create an instance of the handler with the resolved services
+        // var handlerInstance = Activator.CreateInstance(handlerType, args);
+        // if (handlerInstance == null)
+        //     throw new InvalidOperationException($"Handler instance for type '{handlerType}' not found.");
+
 
         var result = method.Invoke(handlerInstance, parameters);
         

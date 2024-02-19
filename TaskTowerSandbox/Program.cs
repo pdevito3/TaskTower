@@ -29,6 +29,12 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 builder.Host.UseSerilog();
 
+builder.Services.AddHttpClient("PokeAPI", client =>
+{
+    client.BaseAddress = new Uri("https://pokeapi.co/api/v2/");
+});
+builder.Services.AddScoped<PokeApiService>();
+
 builder.Services.AddTaskTower(builder.Configuration,x =>
 {
     x.ConnectionString = Consts.ConnectionString;
@@ -52,6 +58,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     };
 });
 
+builder.Services.AddScoped<IDummyLogger, DummyLogger>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -116,6 +123,48 @@ app.MapPost("/create-sync-job", async (JobData request, HttpContext http, IBackg
         var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
         logger.LogError(ex, "Error creating synchronous job: {Message}", ex.Message);
         return Results.Problem("An error occurred while creating the synchronous job.");
+    }
+});
+
+app.MapPost("/create-injectable-job", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Payload))
+    {
+        return Results.BadRequest("Invalid job payload.");
+    }
+
+    try
+    {
+        var command = new DoAnInjectableThing.Command(request.Payload);
+        var jobId = await client.Enqueue<DoAnInjectableThing>(x => x.Handle(command));
+
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+app.MapPost("/create-many-injectable-jobs", async (HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            var command = new DoAnInjectableThing.Command(Guid.NewGuid().ToString());
+            await client.Enqueue<DoAnInjectableThing>(x => x.Handle(command));
+        }
+        
+        return Results.Ok(new { Message = $"Jobs created" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
     }
 });
 

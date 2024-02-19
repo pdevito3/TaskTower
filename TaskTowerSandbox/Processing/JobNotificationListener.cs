@@ -63,7 +63,8 @@ public class JobNotificationListener : BackgroundService
                 await _semaphore.WaitAsync(stoppingToken);
                 try
                 {
-                    await ProcessAvailableJob(stoppingToken);
+                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                    await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
                 }
                 finally
                 {
@@ -192,7 +193,7 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
 
-    private async Task ProcessAvailableJob(CancellationToken stoppingToken)
+    private async Task ProcessAvailableJob(IServiceProvider serviceProvider, CancellationToken stoppingToken)
     {
         // TODO add connection timeout handling
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
@@ -205,10 +206,10 @@ public class JobNotificationListener : BackgroundService
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
         
-        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
+        await using var txProcessing = await conn.BeginTransactionAsync(stoppingToken);
         
         var queuePrioritization = _options.QueuePrioritization;
-        var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);
+        var job = await queuePrioritization.GetJobToRun(conn, txProcessing, _options.QueuePriorities);
         
         if (job != null)
         {
@@ -219,18 +220,20 @@ public class JobNotificationListener : BackgroundService
                 Status = JobStatus.Processing(),
                 OccurredAt = nowProcessing
             });
-            await AddRunHistory(conn, runHistoryProcessing, tx);
+            await AddRunHistory(conn, runHistoryProcessing, txProcessing);
+            await txProcessing.CommitAsync(stoppingToken);
 
             Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
 
             try
             {
-                await job.Invoke();
+                await job.Invoke(serviceProvider);
                 
+                await using var tx = await conn.BeginTransactionAsync(stoppingToken);
                 var nowDone = DateTimeOffset.UtcNow;
                 var updateResult = await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Completed().Value, nowDone },
+                    new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
                     transaction: tx
                 );
                 
@@ -247,14 +250,16 @@ public class JobNotificationListener : BackgroundService
                     OccurredAt = nowDone
                 });
                 await AddRunHistory(conn, runHistory, tx);
+                await tx.CommitAsync(stoppingToken);
             }
             catch (Exception ex)
             {
+                await using var tx = await conn.BeginTransactionAsync(stoppingToken);
                 var nowFailed = DateTimeOffset.UtcNow;
                 var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
                 var updateResult = await conn.ExecuteAsync(
-                    $"UPDATE jobs SET status = @Status, ran_at = @now, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, now = nowFailed },
+                    $"UPDATE jobs SET status = @Status, ran_at = @FailTime, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
+                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, FailTime = nowFailed },
                     transaction: tx
                 );
                 
@@ -273,6 +278,7 @@ public class JobNotificationListener : BackgroundService
                     OccurredAt = nowFailed
                 });
                 await AddRunHistory(conn, runHistory, tx);
+                await tx.CommitAsync(stoppingToken);
                 
                 Log.Error("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
             }
@@ -280,7 +286,6 @@ public class JobNotificationListener : BackgroundService
             Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
         }
         
-        await tx.CommitAsync(stoppingToken);
     }
 
     private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)
