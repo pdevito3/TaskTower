@@ -221,7 +221,8 @@ public class TaskTowerJob
         if (Retries < MaxRetries)
             Retries++;
         
-        // TODO if (Retries >= MaxRetries) mark as dead
+        if (Retries >= MaxRetries)
+            Status = JobStatus.Dead();
         
         return this;
     }

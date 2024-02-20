@@ -311,6 +311,10 @@ public class JobNotificationListener : BackgroundService
                 await AddRunHistory(conn, runHistory, tx);
                 
                 Log.Error("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
+                if (job.Status.IsDead())
+                {
+                    Log.Error("Job {JobId} is dead", job.Id);
+                }
             }
             await tx.CommitAsync(stoppingToken);
             

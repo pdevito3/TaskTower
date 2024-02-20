@@ -24,6 +24,11 @@ public class JobStatus : ValueObject
     }
 
     public bool IsPending() => Value == Pending().Value;
+    public bool IsEnqueued() => Value == Enqueued().Value;
+    public bool IsProcessing() => Value == Processing().Value;
+    public bool IsCompleted() => Value == Completed().Value;
+    public bool IsFailed() => Value == Failed().Value;
+    public bool IsDead() => Value == Dead().Value;
     public static JobStatus Of(string value) => new JobStatus(value);
     public static implicit operator string(JobStatus value) => value.Value;
     public static List<string> ListNames() => JobStatusEnum.List.Select(x => x.Name).ToList();
@@ -32,6 +37,7 @@ public class JobStatus : ValueObject
     public static JobStatus Processing() => new JobStatus(JobStatusEnum.Processing.Name);
     public static JobStatus Completed() => new JobStatus(JobStatusEnum.Completed.Name);
     public static JobStatus Failed() => new JobStatus(JobStatusEnum.Failed.Name);
+    public static JobStatus Dead() => new JobStatus(JobStatusEnum.Dead.Name);
 
     protected JobStatus() { } // EF Core
 
@@ -42,6 +48,7 @@ public class JobStatus : ValueObject
         public static readonly JobStatusEnum Processing = new ProcessingType();
         public static readonly JobStatusEnum Completed = new CompletedType();
         public static readonly JobStatusEnum Failed = new FailedType();
+        public static readonly JobStatusEnum Dead = new DeadType();
 
         protected JobStatusEnum(string name, int value) : base(name, value)
         {
@@ -78,6 +85,13 @@ public class JobStatus : ValueObject
         private class FailedType : JobStatusEnum
         {
             public FailedType() : base("Failed", 4)
+            {
+            }
+        }
+        
+        private class DeadType : JobStatusEnum
+        {
+            public DeadType() : base("Dead", 5)
             {
             }
         }
