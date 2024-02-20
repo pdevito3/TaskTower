@@ -6,6 +6,7 @@ using EnqueuedJobs;
 using JobStatuses;
 using Models;
 using RunHistories;
+using Utils;
 
 public class TaskTowerJob
 {
@@ -178,29 +179,6 @@ public class TaskTowerJob
         
         var handlerInstance = ActivatorUtilities.CreateInstance(serviceProvider, handlerType);
         if (handlerInstance == null) throw new InvalidOperationException($"Handler instance for type '{Type}' could not be created.");
-        
-        // Get the constructor of the handler type
-        // var constructorInfo = handlerType.GetConstructors().FirstOrDefault();
-        // if (constructorInfo == null)
-        //     throw new InvalidOperationException($"No constructor found for type '{handlerType}'.");
-        //
-        // // Resolve constructor parameters from the service provider
-        // var constructorParameters = constructorInfo.GetParameters();
-        // var args = new object[constructorParameters.Length];
-        // for (int i = 0; i < constructorParameters.Length; i++)
-        // {
-        //     var serviceType = constructorParameters[i].ParameterType;
-        //     var service = serviceProvider.GetService(serviceType);
-        //     if (service == null)
-        //         throw new InvalidOperationException($"Service for type '{serviceType}' not found.");
-        //     args[i] = service;
-        // }
-        //
-        // // Create an instance of the handler with the resolved services
-        // var handlerInstance = Activator.CreateInstance(handlerType, args);
-        // if (handlerInstance == null)
-        //     throw new InvalidOperationException($"Handler instance for type '{handlerType}' not found.");
-
 
         var result = method.Invoke(handlerInstance, parameters);
         
@@ -228,16 +206,23 @@ public class TaskTowerJob
         return this;
     }
     
-    public TaskTowerJob MarkAsFailed(string error)
+    public TaskTowerJob MarkAsFailed()
     {
         Status = JobStatus.Failed();
+        RanAt = DateTimeOffset.UtcNow;
+        RunAfter = BackoffCalculator.CalculateBackoff(Retries);
+        BumpRetry();
+        
         return this;
     }
     
-    public TaskTowerJob BumpRetry()
+    private TaskTowerJob BumpRetry()
     {
         if (Retries < MaxRetries)
             Retries++;
+        
+        // TODO if (Retries >= MaxRetries) mark as dead
+        
         return this;
     }
     

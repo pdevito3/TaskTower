@@ -361,6 +361,24 @@ app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient 
     }
 });
 
+
+app.MapPost("/can-fail", async (HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        var command = new DoAPossiblyFailingThing.Command("fail");
+        await client.Enqueue<DoAPossiblyFailingThing>(x => x.Handle(command));
+
+        return Results.Ok(new { Message = $"queued job added" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
 app.Run();
 
 

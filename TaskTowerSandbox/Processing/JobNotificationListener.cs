@@ -260,13 +260,39 @@ public class JobNotificationListener : BackgroundService
             }
             catch (Exception ex)
             {
-                var nowFailed = DateTimeOffset.UtcNow;
-                var nextRunAt = BackoffCalculator.CalculateBackoff(job.Retries);
+                job.MarkAsFailed();
                 var updateResult = await conn.ExecuteAsync(
-                    $"UPDATE jobs SET status = @Status, ran_at = @FailTime, run_after = @RunAfter, retries = retries + 1 WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Failed().Value, RunAfter = nextRunAt, FailTime = nowFailed },
+                    @$"UPDATE jobs 
+    SET 
+        status = @Status, 
+        type = @Type, 
+        method = @Method, 
+        parameter_types = @ParameterTypes, 
+        payload = @Payload::jsonb, 
+        retries = @Retries, 
+        max_retries = @MaxRetries, 
+        run_after = @RunAfter, 
+        ran_at = @RanAt, 
+        created_at = @CreatedAt, 
+        deadline = @Deadline
+    WHERE id = @Id",
+                    new { 
+                        Id = job.Id, 
+                        Status = job.Status.Value, 
+                        Type = job.Type,
+                        Method = job.Method,
+                        ParameterTypes = job.ParameterTypes,
+                        Payload = job.Payload,
+                        Retries = job.Retries,
+                        MaxRetries = job.MaxRetries,
+                        RunAfter = job.RunAfter,
+                        RanAt = job.RanAt,
+                        CreatedAt = job.CreatedAt,
+                        Deadline = job.Deadline
+                    },
                     transaction: tx
                 );
+
                 
                 var deleteEnqueuedJobResult = await conn.ExecuteAsync(
                     "DELETE FROM enqueued_jobs WHERE job_id = @Id",
@@ -280,7 +306,7 @@ public class JobNotificationListener : BackgroundService
                     Status = JobStatus.Failed(),
                     Comment = ex.Message,
                     Details = ex.StackTrace,
-                    OccurredAt = nowFailed
+                    OccurredAt = job.RanAt ?? DateTimeOffset.UtcNow
                 });
                 await AddRunHistory(conn, runHistory, tx);
                 

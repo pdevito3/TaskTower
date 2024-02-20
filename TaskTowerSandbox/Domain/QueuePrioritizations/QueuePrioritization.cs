@@ -294,14 +294,27 @@ LIMIT {limit}",
                 => await GetJobToRunBase(conn, tx, queuePriorities);
         }
 
-        public async Task<TaskTowerJob?> GetJobToRunBase(NpgsqlConnection conn, NpgsqlTransaction tx, Dictionary<string, int> queuePriorities)
+        private async Task<TaskTowerJob?> GetJobToRunBase(NpgsqlConnection conn, NpgsqlTransaction tx, Dictionary<string, int> queuePriorities)
         {
             var jobs = await GetEnqueuedJobs(conn, tx, queuePriorities, 1);
             var enqueuedJob = jobs.FirstOrDefault();
                 
             var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                 $@"
-SELECT id, queue, payload, retries, type, method, parameter_types, payload
+SELECT id as Id, 
+       fingerprint as Fingerprint, 
+       queue as Queue, 
+       status as Status, 
+       type as Type, 
+       method as Method, 
+       parameter_types as ParameterTypes, 
+       payload as Payload, 
+       retries as Retries, 
+       max_retries as MaxRetries, 
+       run_after as RunAfter, 
+       ran_at as RanAt, 
+       created_at as CreatedAt, 
+       deadline as Deadline
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED

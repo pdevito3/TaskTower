@@ -1,6 +1,9 @@
 namespace TaskTowerSandbox.Configurations;
 
+using Dapper;
 using Database;
+using Domain.JobStatuses;
+using Domain.JobStatuses.Mappings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +32,8 @@ public static class TaskTowerServiceRegistration
             services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
         }
         
+        SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
+
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
 
         // TODO no more db context
