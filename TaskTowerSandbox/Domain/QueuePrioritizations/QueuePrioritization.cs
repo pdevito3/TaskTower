@@ -34,7 +34,7 @@ public class QueuePrioritization : ValueObject
     public static List<string> ListNames() => QueuePrioritizationEnum.List.Select(x => x.Name).ToList();
     public static QueuePrioritization None() => new QueuePrioritization(QueuePrioritizationEnum.None.Name);
     public static QueuePrioritization AlphaNumeric() => new QueuePrioritization(QueuePrioritizationEnum.AlphaNumeric.Name);
-    public static QueuePrioritization Strict() => new QueuePrioritization(QueuePrioritizationEnum.Strict.Name);
+    public static QueuePrioritization Index() => new QueuePrioritization(QueuePrioritizationEnum.Index.Name);
     public static QueuePrioritization Weighted() => new QueuePrioritization(QueuePrioritizationEnum.Weighted.Name);
     internal static QueuePrioritization FromName(string name) => new QueuePrioritization(name);
     public async Task<IEnumerable<TaskTowerJob>> GetJobsToEnqueue(NpgsqlConnection conn, 
@@ -54,7 +54,7 @@ public class QueuePrioritization : ValueObject
     {
         public static readonly QueuePrioritizationEnum None = new NoneType();
         public static readonly QueuePrioritizationEnum AlphaNumeric = new AlphaNumericType();
-        public static readonly QueuePrioritizationEnum Strict = new StrictType();
+        public static readonly QueuePrioritizationEnum Index = new IndexType();
         public static readonly QueuePrioritizationEnum Weighted = new WeightedType();
 
         protected QueuePrioritizationEnum(string name, int value) : base(name, value)
@@ -193,9 +193,9 @@ LIMIT {limit}",
                     => await GetJobToRunBase(conn, tx, queuePriorities);
         }
 
-        private class StrictType : QueuePrioritizationEnum
+        private class IndexType : QueuePrioritizationEnum
         {
-            public StrictType() : base("Strict", 2)
+            public IndexType() : base("Index", 2)
             {
             }
 
