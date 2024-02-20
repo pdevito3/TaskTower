@@ -33,6 +33,7 @@ public class QueuePrioritization : ValueObject
     public static implicit operator string(QueuePrioritization value) => value.Value;
     public static List<string> ListNames() => QueuePrioritizationEnum.List.Select(x => x.Name).ToList();
     public static QueuePrioritization None() => new QueuePrioritization(QueuePrioritizationEnum.None.Name);
+    public static QueuePrioritization AlphaNumeric() => new QueuePrioritization(QueuePrioritizationEnum.AlphaNumeric.Name);
     public static QueuePrioritization Strict() => new QueuePrioritization(QueuePrioritizationEnum.Strict.Name);
     public static QueuePrioritization Weighted() => new QueuePrioritization(QueuePrioritizationEnum.Weighted.Name);
     internal static QueuePrioritization FromName(string name) => new QueuePrioritization(name);
@@ -52,6 +53,7 @@ public class QueuePrioritization : ValueObject
     private abstract class QueuePrioritizationEnum : SmartEnum<QueuePrioritizationEnum>
     {
         public static readonly QueuePrioritizationEnum None = new NoneType();
+        public static readonly QueuePrioritizationEnum AlphaNumeric = new AlphaNumericType();
         public static readonly QueuePrioritizationEnum Strict = new StrictType();
         public static readonly QueuePrioritizationEnum Weighted = new WeightedType();
 
@@ -140,6 +142,56 @@ LIMIT 1",
                 );
             }
         }
+        
+        private class AlphaNumericType : QueuePrioritizationEnum
+        {
+            public AlphaNumericType() : base("AlphaNumeric", 1)
+            {
+            }
+
+            public override async Task<IEnumerable<TaskTowerJob>> GetJobsToEnqueue(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+            {
+                var now = DateTimeOffset.UtcNow;
+
+                var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
+                    $@"
+SELECT id, queue
+FROM jobs 
+WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
+  AND run_after <= @Now
+ORDER BY queue, run_after 
+FOR UPDATE SKIP LOCKED 
+LIMIT 8000",
+                    new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
+                    transaction: tx
+                );
+
+                return scheduledJobs;
+            }
+
+            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities,
+                int limit)
+            {
+                return await conn.QueryAsync<EnqueuedJob>(
+                    $@"
+SELECT job_id as JobId, queue as Queue
+FROM enqueued_jobs
+ORDER BY queue
+FOR UPDATE SKIP LOCKED
+LIMIT {limit}",
+                    transaction: tx
+                );
+            }
+
+            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+                    => await GetJobToRunBase(conn, tx, queuePriorities);
+        }
 
         private class StrictType : QueuePrioritizationEnum
         {
@@ -212,23 +264,7 @@ LIMIT {limit}",
             public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities)
-            {
-                var jobs = await GetEnqueuedJobs(conn, tx, queuePriorities, 1);
-                var enqueuedJob = jobs.FirstOrDefault();
-                
-                var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
-                    $@"
-SELECT id, queue, payload, retries, type, method, parameter_types, payload
-FROM jobs
-WHERE id = @Id
-FOR UPDATE SKIP LOCKED
-LIMIT 1",
-                    new { Id = enqueuedJob?.JobId },
-                    transaction: tx
-                );
-
-                return job;
-            }
+                => await GetJobToRunBase(conn, tx, queuePriorities);
         }
 
         private class WeightedType : QueuePrioritizationEnum
@@ -244,13 +280,6 @@ LIMIT 1",
                 throw new NotImplementedException();
             }
             
-            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn, 
-                NpgsqlTransaction tx,
-                Dictionary<string, int> queuePriorities)
-            {
-                throw new NotImplementedException();
-            }
-            
             public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
@@ -258,6 +287,30 @@ LIMIT 1",
             {
                 throw new NotImplementedException();
             }
+
+            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+                => await GetJobToRunBase(conn, tx, queuePriorities);
+        }
+
+        public async Task<TaskTowerJob?> GetJobToRunBase(NpgsqlConnection conn, NpgsqlTransaction tx, Dictionary<string, int> queuePriorities)
+        {
+            var jobs = await GetEnqueuedJobs(conn, tx, queuePriorities, 1);
+            var enqueuedJob = jobs.FirstOrDefault();
+                
+            var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+                $@"
+SELECT id, queue, payload, retries, type, method, parameter_types, payload
+FROM jobs
+WHERE id = @Id
+FOR UPDATE SKIP LOCKED
+LIMIT 1",
+                new { Id = enqueuedJob?.JobId },
+                transaction: tx
+            );
+
+            return job;
         }
     }
 }
