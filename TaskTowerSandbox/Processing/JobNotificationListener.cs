@@ -98,7 +98,8 @@ public class JobNotificationListener : BackgroundService
                 await _semaphore.WaitAsync(stoppingToken);
                 try
                 {
-                    await AnnounceEnqueuedJobs(stoppingToken);
+                    await AnnounceEnqueuedJobs(_options.QueuePriorities,
+                        stoppingToken);
                 }
                 finally
                 {
@@ -115,7 +116,7 @@ public class JobNotificationListener : BackgroundService
         }
     }
     
-    private async Task AnnounceEnqueuedJobs(CancellationToken stoppingToken)
+    private async Task AnnounceEnqueuedJobs(Dictionary<string, int> queuePriorities, CancellationToken stoppingToken)
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
@@ -128,15 +129,24 @@ public class JobNotificationListener : BackgroundService
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
-        var enqueuedJobs = await conn.QueryAsync<EnqueuedJob>(
-            $@"
-    SELECT job_id as JobId, queue as Queue
-    FROM enqueued_jobs
-    FOR UPDATE SKIP LOCKED 
-    LIMIT 8000",
-            transaction: tx
-        );
+        // Construct the CASE statement for queue priorities
+        var priorityCaseSql = string.Join(" ",
+            queuePriorities.Select((kvp, index) => $"WHEN '{kvp.Key}' THEN {kvp.Value}"));
+
+        // Append the CASE statement to ORDER BY if it's not empty; otherwise, default to ordering by some other column
+        if (!string.IsNullOrEmpty(priorityCaseSql))
+        {
+            priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END";
+        }
+        else
+        {
+            // Fallback ordering, e.g., by id or run_after, if no priority case statement is constructed
+            priorityCaseSql =
+                "id"; // Adjust this line according to your table's structure and desired default ordering
+        }
         
+        var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
+
         foreach (var enqueuedJob in enqueuedJobs)
         {
             var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.JobId);

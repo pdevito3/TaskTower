@@ -317,8 +317,6 @@ app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient 
 {
     try
     {
-        
-        
         for (var i = 0; i < 300; i++)
         {
             var lowCommand = new DoALowThing.Command("this is a low job");

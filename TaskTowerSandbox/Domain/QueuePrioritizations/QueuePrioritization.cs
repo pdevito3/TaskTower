@@ -42,6 +42,10 @@ public class QueuePrioritization : ValueObject
     public async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
         NpgsqlTransaction tx,
         Dictionary<string, int> queuePriorities) => await _priority.GetJobToRun(conn, tx, queuePriorities);
+    public async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+        NpgsqlTransaction tx,
+        Dictionary<string, int> queuePriorities,
+        int limit) => await _priority.GetEnqueuedJobs(conn, tx, queuePriorities, limit);
 
     protected QueuePrioritization() { } // EF Core
 
@@ -59,7 +63,11 @@ public class QueuePrioritization : ValueObject
             NpgsqlTransaction tx,
             Dictionary<string, int> queuePriorities);
         
-        // get job to run
+        public abstract Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
+            NpgsqlTransaction tx,
+            Dictionary<string, int> queuePriorities,
+            int limit);
+        
         public abstract Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn, 
             NpgsqlTransaction tx,
             Dictionary<string, int> queuePriorities);
@@ -116,6 +124,21 @@ LIMIT 1",
                 
                 return job;
             }
+
+            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities,
+                int limit)
+            {
+                return await conn.QueryAsync<EnqueuedJob>(
+                    $@"
+    SELECT job_id as JobId, queue as Queue
+    FROM enqueued_jobs
+    FOR UPDATE SKIP LOCKED
+    LIMIT {limit}",
+                    transaction: tx
+                );
+            }
         }
 
         private class StrictType : QueuePrioritizationEnum
@@ -154,9 +177,10 @@ LIMIT 8000",
                 return scheduledJobs;
             }
 
-            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
-                Dictionary<string, int> queuePriorities)
+                Dictionary<string, int> queuePriorities,
+                int limit)
             {
                 // Construct the CASE statement for queue priorities
                 var priorityCaseSql = string.Join(" ",
@@ -174,15 +198,23 @@ LIMIT 8000",
                         "id"; // Adjust this line according to your table's structure and desired default ordering
                 }
                 
-                var enqueuedJob = await conn.QueryFirstOrDefaultAsync<EnqueuedJob>(
+                return await conn.QueryAsync<EnqueuedJob>(
                     $@"
 SELECT job_id as JobId, queue as Queue
 FROM enqueued_jobs
 ORDER BY {priorityCaseSql} DESC
 FOR UPDATE SKIP LOCKED
-LIMIT 1",
+LIMIT {limit}",
                     transaction: tx
                 );
+            }
+
+            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+            {
+                var jobs = await GetEnqueuedJobs(conn, tx, queuePriorities, 1);
+                var enqueuedJob = jobs.FirstOrDefault();
                 
                 var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                     $@"
@@ -215,6 +247,14 @@ LIMIT 1",
             public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn, 
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities)
+            {
+                throw new NotImplementedException();
+            }
+            
+            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities,
+                int limit)
             {
                 throw new NotImplementedException();
             }
