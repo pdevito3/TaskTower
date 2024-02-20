@@ -50,12 +50,25 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     };
     x.QueuePrioritization = QueuePrioritization.Strict();
     // x.IdleTransactionTimeout = 1000;
-    x.QueueAssignments = new Dictionary<Type, string>
+    
+    x.AddJobConfiguration<DoAPossiblyFailingThing>(x =>
     {
-        {typeof(DoALowThing), "low"},
-        {typeof(DoAPossiblyFailingThing), "critical"},
-        {typeof(DoACriticalThing), "critical"}
-    };
+        x.Queue = "critical";
+        x.DisplayName = "Possibly Failing Task";
+        x.MaxRetryCount = 2;
+    });
+    x.AddJobConfiguration<DoACriticalThing>(x =>
+    {
+        x.Queue = "critical";
+        x.DisplayName = "Critical Task";
+        x.MaxRetryCount = 5;
+    });
+    x.AddJobConfiguration<DoALowThing>(x =>
+    {
+        x.Queue = "low";
+        x.DisplayName = "Low Task";
+        x.MaxRetryCount = 1;
+    });
 });
 
 builder.Services.AddScoped<IDummyLogger, DummyLogger>();

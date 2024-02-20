@@ -71,6 +71,7 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
         };
         if (delay.HasValue)
         {
@@ -110,6 +111,7 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
         };
         if (delay.HasValue)
         {
@@ -149,6 +151,7 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
         };
         
         if (delay.HasValue)

@@ -61,8 +61,34 @@ public class TaskTowerOptions
     /// </summary>
     public QueuePrioritization QueuePrioritization { get; set; } = QueuePrioritization.None();
 
+    public Dictionary<Type, JobConfiguration> JobConfigurations { get; private set; } = new Dictionary<Type, JobConfiguration>();
+    
     /// <summary>
     /// A record of the different message types and their respective queues
     /// </summary>
-    public Dictionary<Type, string> QueueAssignments { get; set; } = new Dictionary<Type, string>();
+    public Dictionary<Type, string> QueueAssignments
+        =>  JobConfigurations.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Queue);
+    
+    public void AddJobConfiguration<T>(Action<JobConfiguration> configure)
+    {
+        var config = new JobConfiguration();
+        configure(config);
+
+        JobConfigurations[typeof(T)] = config;
+    }
+    
+    public int? GetMaxRetryCount(Type? type)
+    {
+        if (type != null && JobConfigurations.TryGetValue(type, out var config))
+            return config.MaxRetryCount;
+        
+        return null;
+    }
+    
+    public class JobConfiguration
+    {
+        public string? Queue { get; set; }
+        public string? DisplayName { get; set; }
+        public int? MaxRetryCount { get; set; }
+    }
 }
