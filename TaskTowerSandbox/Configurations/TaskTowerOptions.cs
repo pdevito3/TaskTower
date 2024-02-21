@@ -17,9 +17,14 @@ public class TaskTowerOptions
     public string ConnectionString { get; set; } = null!;
     
     /// <summary>
-    /// The interval of time between checking for new future/retry jobs
+    /// The interval of time between checking for new future/retry jobs that need to be enqueued
     /// </summary>
     public TimeSpan JobCheckInterval { get; set; } = TimeSpan.FromSeconds(1);
+    
+    /// <summary>
+    /// The interval of time that the the queue will be scanned for new jobs to announce
+    /// </summary>
+    public TimeSpan QueueAnnouncementInterval { get; set; } = TimeSpan.FromSeconds(1);
     
     // TODO implement this
     /// <summary>

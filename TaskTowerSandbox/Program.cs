@@ -37,7 +37,7 @@ builder.Services.AddScoped<PokeApiService>();
 
 builder.Services.AddTaskTower(builder.Configuration,x =>
 {
-    x.ConnectionString = Consts.ConnectionString;
+    x.ConnectionString = TaskTowerConstants.ConnectionString;
     x.QueuePriorities = new Dictionary<string, int>
     {
         {"critical", 3},

@@ -41,12 +41,12 @@ public class JobNotificationListener : BackgroundService
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
-        Log.Debug($"Subscribing to {Consts.Notifications.JobAvailable} channel");
-        await using (var cmd = new NpgsqlCommand($"LISTEN {Consts.Notifications.JobAvailable}", conn))
+        Log.Debug($"Subscribing to {TaskTowerConstants.Notifications.JobAvailable} channel");
+        await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
         {
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
-        Log.Debug($"Subscribed to {Consts.Notifications.JobAvailable} channel");
+        Log.Debug($"Subscribed to {TaskTowerConstants.Notifications.JobAvailable} channel");
         
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
@@ -76,6 +76,9 @@ public class JobNotificationListener : BackgroundService
         
         // Configure a timer to poll for scheduled jobs at the specified interval
         var pollingInterval = _options.JobCheckInterval;
+        pollingInterval = pollingInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            : pollingInterval;
         Log.Debug("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
@@ -91,7 +94,10 @@ public class JobNotificationListener : BackgroundService
             },
             null, TimeSpan.Zero, pollingInterval);
         
-        var enqueuedJobsInterval = TimeSpan.FromSeconds(1);
+        var enqueuedJobsInterval = _options.JobCheckInterval;
+        enqueuedJobsInterval = enqueuedJobsInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            : enqueuedJobsInterval;
         Log.Debug("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
         await using var enqueuedJobsTimer = new Timer(async _ =>
             {
@@ -129,29 +135,13 @@ public class JobNotificationListener : BackgroundService
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
-        // Construct the CASE statement for queue priorities
-        var priorityCaseSql = string.Join(" ",
-            queuePriorities.Select((kvp, index) => $"WHEN '{kvp.Key}' THEN {kvp.Value}"));
-
-        // Append the CASE statement to ORDER BY if it's not empty; otherwise, default to ordering by some other column
-        if (!string.IsNullOrEmpty(priorityCaseSql))
-        {
-            priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END";
-        }
-        else
-        {
-            // Fallback ordering, e.g., by id or run_after, if no priority case statement is constructed
-            priorityCaseSql =
-                "id"; // Adjust this line according to your table's structure and desired default ordering
-        }
-        
         var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
 
         foreach (var enqueuedJob in enqueuedJobs)
         {
             var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.JobId);
             await conn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
-                new { Notification = Consts.Notifications.JobAvailable, Payload = notifyPayload },
+                new { Notification = TaskTowerConstants.Notifications.JobAvailable, Payload = notifyPayload },
                 transaction: tx
             );
             
