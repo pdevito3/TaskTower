@@ -36,6 +36,7 @@ public class QueuePrioritization : ValueObject
     public static QueuePrioritization AlphaNumeric() => new QueuePrioritization(QueuePrioritizationEnum.AlphaNumeric.Name);
     public static QueuePrioritization Index() => new QueuePrioritization(QueuePrioritizationEnum.Index.Name);
     public static QueuePrioritization Weighted() => new QueuePrioritization(QueuePrioritizationEnum.Weighted.Name);
+    public static QueuePrioritization Strict() => new QueuePrioritization(QueuePrioritizationEnum.Strict.Name);
     internal static QueuePrioritization FromName(string name) => new QueuePrioritization(name);
     public async Task<IEnumerable<TaskTowerJob>> GetJobsToEnqueue(NpgsqlConnection conn, 
         NpgsqlTransaction tx,
@@ -56,6 +57,7 @@ public class QueuePrioritization : ValueObject
         public static readonly QueuePrioritizationEnum AlphaNumeric = new AlphaNumericType();
         public static readonly QueuePrioritizationEnum Index = new IndexType();
         public static readonly QueuePrioritizationEnum Weighted = new WeightedType();
+        public static readonly QueuePrioritizationEnum Strict = new StrictType();
 
         protected QueuePrioritizationEnum(string name, int value) : base(name, value)
         {
@@ -289,6 +291,100 @@ LIMIT {limit}",
             }
 
             public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+                => await GetJobToRunBase(conn, tx, queuePriorities);
+        }
+        
+        private class StrictType : QueuePrioritizationEnum
+        {
+            public StrictType() : base("Strict", 4)
+            {
+            }
+
+            public override async Task<IEnumerable<TaskTowerJob>> GetJobsToEnqueue(NpgsqlConnection conn, 
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+            {
+                var priorityRanksSql = string.Join(" UNION ALL ",
+                    queuePriorities.OrderBy(kvp => kvp.Value)
+                        .Select(kvp => $"SELECT '{kvp.Key}' AS Priority, {kvp.Value} AS Rank"));
+
+                var sqlQuery = $@"
+WITH PriorityRanks AS (
+    {priorityRanksSql}
+),
+HighestAvailablePriority AS (
+    SELECT
+        MAX(pr.Rank) AS Rank
+    FROM
+        jobs j
+        INNER JOIN PriorityRanks pr ON j.queue = pr.Priority
+    WHERE
+        (j.status = @Pending OR (j.status = @Failed AND j.retries < j.max_retries))
+        AND j.run_after <= @Now
+)
+SELECT
+    j.id, j.queue
+FROM
+    jobs j
+    INNER JOIN PriorityRanks pr ON j.queue = pr.Priority
+    CROSS JOIN HighestAvailablePriority hap
+WHERE
+    (j.status = @Pending OR (j.status = @Failed AND j.retries < j.max_retries))
+    AND j.run_after <= @Now
+    AND pr.Rank = hap.Rank
+ORDER BY
+    j.run_after
+FOR UPDATE SKIP LOCKED
+LIMIT 8000;";
+
+                var now = DateTimeOffset.UtcNow;
+                var jobs = await conn.QueryAsync<TaskTowerJob>(
+                    sqlQuery,
+                    new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
+                    transaction: tx
+                );
+                
+                return jobs;
+            }
+
+            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities,
+                int limit)
+            {
+                var priorityRanksSql = string.Join(" UNION ALL ",
+                    queuePriorities.OrderBy(kvp => kvp.Value)
+                        .Select(kvp => $"SELECT '{kvp.Key}' AS Priority, {kvp.Value} AS Rank"));
+                
+                var sqlQuery = $@"
+WITH PriorityRanks AS (
+    {priorityRanksSql}
+),
+HighestAvailablePriority AS (
+    SELECT
+        MAX(pr.Rank) AS Rank
+    FROM
+        enqueued_jobs ej
+        INNER JOIN PriorityRanks pr ON ej.queue = pr.Priority
+)
+SELECT ej.job_id as JobId, ej.queue as Queue
+FROM
+    enqueued_jobs ej
+    INNER JOIN PriorityRanks pr ON ej.queue = pr.Priority
+    CROSS JOIN HighestAvailablePriority hap
+WHERE pr.Rank = hap.Rank
+FOR UPDATE SKIP LOCKED
+LIMIT {limit};";
+                
+                    return await conn.QueryAsync<EnqueuedJob>(
+                        sqlQuery,
+                        transaction: tx
+                    );
+            }
+
+            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn, 
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities)
                 => await GetJobToRunBase(conn, tx, queuePriorities);

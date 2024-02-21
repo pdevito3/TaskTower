@@ -48,7 +48,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         // {"default", 30},
         // {"low", 10}
     };
-    x.QueuePrioritization = QueuePrioritization.Index();
+    x.QueuePrioritization = QueuePrioritization.Strict();
     // x.IdleTransactionTimeout = 1000;
     
     x.AddJobConfiguration<DoAPossiblyFailingThing>(x =>
@@ -326,7 +326,7 @@ app.MapPost("/queued-test", async (HttpContext http, IBackgroundJobClient client
 });
 
 
-app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient client) =>
+app.MapPost("/large-queued-test-scheduled", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
@@ -361,6 +361,49 @@ app.MapPost("/large-queued-test", async (HttpContext http, IBackgroundJobClient 
             var lowCommand = new DoALowThing.Command("this is a low job");
             await client.Schedule<DoALowThing>(x => x.Handle(lowCommand), 
                 TimeSpan.FromSeconds(2));
+        }
+        
+        return Results.Ok(new { Message = $"queued jobs added" });
+    }
+
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+app.MapPost("/large-queued-test-immediate", async (HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        for (var i = 0; i < 300; i++)
+        {
+            var lowCommand = new DoALowThing.Command("this is a low job");
+            await client.Enqueue<DoALowThing>(x => x.Handle(lowCommand));
+        }
+        for (var i = 0; i < 100; i++)
+        {
+            var criticalCommand = new DoACriticalThing.Command("this is a critical job");
+            await client.Enqueue<DoACriticalThing>(x => x.Handle(criticalCommand));
+        }
+        for (var i = 0; i < 100; i++)
+        {
+            var defaultCommand = new DoADefaultThing.Command("this is a default job");
+            await client.Enqueue<DoADefaultThing>(x => x.Handle(defaultCommand));
+        }
+        
+        for (var i = 0; i < 100; i++)
+        {
+            var criticalCommand = new DoACriticalThing.Command("this is a critical job");
+            await client.Enqueue<DoACriticalThing>(x => x.Handle(criticalCommand));
+        }
+        
+        for (var i = 0; i < 300; i++)
+        {
+            var lowCommand = new DoALowThing.Command("this is a low job");
+            await client.Enqueue<DoALowThing>(x => x.Handle(lowCommand));
         }
         
         return Results.Ok(new { Message = $"queued jobs added" });
