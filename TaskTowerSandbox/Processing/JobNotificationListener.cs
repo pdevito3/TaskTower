@@ -126,12 +126,6 @@ public class JobNotificationListener : BackgroundService
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
-
-        if (_options.IdleTransactionTimeout > 0)
-        {
-            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
-            await cmd.ExecuteNonQueryAsync(stoppingToken);
-        }
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
@@ -155,12 +149,6 @@ public class JobNotificationListener : BackgroundService
     {
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
-
-        if (_options.IdleTransactionTimeout > 0)
-        {
-            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
-            await cmd.ExecuteNonQueryAsync(stoppingToken);
-        }
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
 
@@ -202,13 +190,6 @@ public class JobNotificationListener : BackgroundService
         // TODO add connection timeout handling
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
-
-        // TODO add transaction timeout handling
-        if (_options.IdleTransactionTimeout > 0)
-        {
-            await using var cmd = new NpgsqlCommand($"SET idle_in_transaction_session_timeout TO {_options.IdleTransactionTimeout};", conn);
-            await cmd.ExecuteNonQueryAsync(stoppingToken);
-        }
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         var queuePrioritization = _options.QueuePrioritization;
