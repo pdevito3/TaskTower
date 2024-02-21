@@ -25,9 +25,16 @@ public interface IBackgroundJobClient
     Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
     
     
-    Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
-    Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
-    Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, string queue, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule(Expression<Action> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Action<T>> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default);
+    Task<Guid> Schedule<T>(Expression<Func<T, Task>> methodCall, TimeSpan delay, string? queue, CancellationToken cancellationToken = default);
+    
+    IScheduleBuilder Schedule(Expression<Action> methodCall, CancellationToken cancellationToken = default);
+    IScheduleBuilder Schedule<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default);
+    IScheduleBuilder Schedule<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default);
+    IScheduleBuilder Schedule(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default);
+    IScheduleBuilder Schedule<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default);
+    IScheduleBuilder Schedule<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
     
     // TODO see if i can get this one working
     // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
@@ -46,6 +53,19 @@ public class BackgroundJobClient : IBackgroundJobClient
         _dbContext = dbContext;
     }
 
+    public IScheduleBuilder Schedule(Expression<Action> methodCall, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<Action>(this, methodCall, cancellationToken);
+    public IScheduleBuilder Schedule<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<T>(this, methodCall, cancellationToken);
+    public IScheduleBuilder Schedule<T>(Expression<Func<T, Task>> methodCall, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<T>(this, methodCall, cancellationToken);
+    public IScheduleBuilder Schedule(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<Action>(this, methodCall, queue, cancellationToken);
+    public IScheduleBuilder Schedule<T>(Expression<Action<T>> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<T>(this, methodCall, queue, cancellationToken);
+    public IScheduleBuilder Schedule<T>(Expression<Func<T, Task>> methodCall, string? queue, CancellationToken cancellationToken = default)
+        => new ScheduleBuilder<T>(this, methodCall, queue, cancellationToken);
+    
     public async Task<Guid> Enqueue(Expression<Action> methodCall, CancellationToken cancellationToken = default)
         => await ScheduleJob(methodCall, null, null, cancellationToken);
     public async Task<Guid> Enqueue(Expression<Action> methodCall, string? queue, CancellationToken cancellationToken = default)
