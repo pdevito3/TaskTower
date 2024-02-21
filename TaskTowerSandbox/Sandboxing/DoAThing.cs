@@ -99,3 +99,14 @@ public class DoASynchronousThing
         Console.WriteLine($"Handled DoASynchronousThing with data: {command.Data}");
     }
 }
+
+public class DoASlowThing
+{
+    public sealed record Command(string Data);
+    
+    public async Task Handle(Command request)
+    {
+        await Task.Delay(15000);
+        Log.Information("Handled DoALongDelayThing with data: {Data}", request.Data);
+    }
+}
