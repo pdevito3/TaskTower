@@ -145,7 +145,7 @@ public class JobNotificationListener : BackgroundService
                 transaction: tx
             );
             
-            Log.Debug("Announced job {JobId} to job_available channel from the queue", enqueuedJob.JobId);
+            Log.Debug("Announced job {JobId} to job_available channel from the queue {Queue}", enqueuedJob.JobId, enqueuedJob.Queue);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -170,12 +170,14 @@ public class JobNotificationListener : BackgroundService
         
         foreach (var job in scheduledJobs)
         {
+            // TODO use domain model
             var insertResult = await conn.ExecuteAsync(
                 "INSERT INTO enqueued_jobs(id, job_id, queue) VALUES (gen_random_uuid(), @Id, @Queue)",
                 new { job.Id, job.Queue },
                 transaction: tx
             );
             
+            // TODO use domain model
             var updateResult = await conn.ExecuteAsync(
                 $"UPDATE jobs SET status = @Status WHERE id = @Id",
                 new { job.Id, Status = JobStatus.Enqueued().Value },
@@ -188,6 +190,8 @@ public class JobNotificationListener : BackgroundService
                 Status = JobStatus.Enqueued()
             });
             await AddRunHistory(conn, runHistory, tx);
+            
+            Log.Debug("Enqueued job {JobId} to queue {Queue}", job.Id, job.Queue);
         }
     
         await tx.CommitAsync(stoppingToken);
@@ -282,7 +286,6 @@ public class JobNotificationListener : BackgroundService
                     },
                     transaction: tx
                 );
-
                 
                 var deleteEnqueuedJobResult = await conn.ExecuteAsync(
                     "DELETE FROM enqueued_jobs WHERE job_id = @Id",

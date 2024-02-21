@@ -48,7 +48,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         // {"default", 30},
         // {"low", 10}
     };
-    x.QueuePrioritization = QueuePrioritization.Strict();
+    x.QueuePrioritization = QueuePrioritization.None();
     // x.IdleTransactionTimeout = 1000;
     
     x.AddJobConfiguration<DoAPossiblyFailingThing>(x =>
