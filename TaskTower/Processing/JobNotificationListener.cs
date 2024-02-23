@@ -106,8 +106,7 @@ public class JobNotificationListener : BackgroundService
                 await _semaphore.WaitAsync(stoppingToken);
                 try
                 {
-                    await AnnounceEnqueuedJobs(_options.QueuePriorities,
-                        stoppingToken);
+                    await AnnounceEnqueuedJobs(_options.QueuePriorities, stoppingToken);
                 }
                 finally
                 {
