@@ -7,9 +7,9 @@ using Dapper;
 using Database;
 using Domain.TaskTowerJob;
 using Domain.TaskTowerJob.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using Serilog;
 
 public interface IBackgroundJobClient
 {
@@ -54,11 +54,13 @@ public class BackgroundJobClient : IBackgroundJobClient
 {
     private readonly IOptions<TaskTowerOptions> _options;
     private readonly TaskTowerDbContext _dbContext;
+    private readonly ILogger _logger;
 
-    public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext)
+    public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext, ILogger<BackgroundJobClient> logger)
     {
         _options = options;
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public IScheduleBuilder Schedule(Expression<Action> methodCall, CancellationToken cancellationToken = default)
@@ -226,7 +228,7 @@ public class BackgroundJobClient : IBackgroundJobClient
     {
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         await conn.OpenAsync(cancellationToken);
-        InsertTag(jobId, conn, tag);
+        InsertTag(jobId, conn, tag, _logger);
     }
     
     public IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags)
@@ -236,7 +238,7 @@ public class BackgroundJobClient : IBackgroundJobClient
         
         foreach (var tag in tags)
         {
-            InsertTag(jobId, conn, tag);
+            InsertTag(jobId, conn, tag, _logger);
         }
         
         return this;
@@ -246,7 +248,7 @@ public class BackgroundJobClient : IBackgroundJobClient
     {
         using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         conn.Open();
-        InsertTag(jobId, conn, tag);
+        InsertTag(jobId, conn, tag, _logger);
         
         return this;
     }
@@ -261,11 +263,11 @@ public class BackgroundJobClient : IBackgroundJobClient
         
         foreach (var tag in tags)
         {
-            InsertTag(jobId, conn, tag);
+            InsertTag(jobId, conn, tag, _logger);
         }
     }
 
-    private static void InsertTag(Guid jobId, NpgsqlConnection conn, string tag)
+    private static void InsertTag(Guid jobId, NpgsqlConnection conn, string tag, ILogger logger)
     {
         try
         {
@@ -279,7 +281,7 @@ public class BackgroundJobClient : IBackgroundJobClient
         }
         catch (PostgresException e) when (e.SqlState == "23505")
         {
-            Log.Information("Tag '{Tag}' already exists for job '{JobId}'", tag, jobId);
+            logger.LogInformation("Tag '{Tag}' already exists for job '{JobId}'", tag, jobId);
         }
     }
 

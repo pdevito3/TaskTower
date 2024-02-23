@@ -9,9 +9,9 @@ using Domain.RunHistories;
 using Domain.RunHistories.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using Serilog;
 using Utils;
 
 public class JobNotificationListener : BackgroundService
@@ -19,11 +19,13 @@ public class JobNotificationListener : BackgroundService
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly SemaphoreSlim _semaphore;
     private readonly TaskTowerOptions _options;
+    private readonly ILogger _logger;
 
-    public JobNotificationListener(IServiceScopeFactory serviceScopeFactory)
+    public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
-        
+        _logger = logger;
+
         _options = _serviceScopeFactory.CreateScope()
             .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
         
@@ -35,18 +37,18 @@ public class JobNotificationListener : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Log.Debug("Task Tower worker is starting");
+        _logger.LogInformation("Task Tower worker is starting");
         using var scope = _serviceScopeFactory.CreateScope();
         
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
 
-        Log.Debug($"Subscribing to {TaskTowerConstants.Notifications.JobAvailable} channel");
+        _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
         await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
         {
             await cmd.ExecuteNonQueryAsync(stoppingToken);
         }
-        Log.Debug($"Subscribed to {TaskTowerConstants.Notifications.JobAvailable} channel");
+        _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
         
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
@@ -57,7 +59,7 @@ public class JobNotificationListener : BackgroundService
 
             if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
             {
-                Log.Debug("Notification received for queue {Queue} with Job ID {Id}", parsedPayload.Queue, parsedPayload.JobId);
+                _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
                     
                 // Wait to enter the semaphore before processing a job
                 await _semaphore.WaitAsync(stoppingToken);
@@ -79,7 +81,7 @@ public class JobNotificationListener : BackgroundService
         pollingInterval = pollingInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
             ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
             : pollingInterval;
-        Log.Debug("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
+        _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
         await using var timer = new Timer(async _ =>
             {
                 await _semaphore.WaitAsync(stoppingToken);
@@ -98,7 +100,7 @@ public class JobNotificationListener : BackgroundService
         enqueuedJobsInterval = enqueuedJobsInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
             ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
             : enqueuedJobsInterval;
-        Log.Debug("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
+        _logger.LogInformation("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
         await using var enqueuedJobsTimer = new Timer(async _ =>
             {
                 await _semaphore.WaitAsync(stoppingToken);
@@ -139,7 +141,8 @@ public class JobNotificationListener : BackgroundService
                 transaction: tx
             );
             
-            Log.Debug("Announced job {JobId} to job_available channel from the queue {Queue}", enqueuedJob.JobId, enqueuedJob.Queue);
+            _logger.LogDebug("Announced job {JobId} to {Channel} channel from the queue {Queue}", 
+                enqueuedJob.JobId, TaskTowerConstants.Notifications.JobAvailable, enqueuedJob.Queue);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -179,7 +182,7 @@ public class JobNotificationListener : BackgroundService
             });
             await AddRunHistory(conn, runHistory, tx);
             
-            Log.Debug("Enqueued job {JobId} to queue {Queue}", job.Id, job.Queue);
+            _logger.LogDebug("Enqueued job {JobId} to the {Queue} queue", job.Id, job.Queue);
         }
     
         await tx.CommitAsync(stoppingToken);
@@ -199,7 +202,8 @@ public class JobNotificationListener : BackgroundService
         {
             var nowProcessing = DateTimeOffset.UtcNow;
 
-            Log.Debug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Now}", job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
+            _logger.LogDebug("Processing job {JobId} from the {Queue} queue with a payload of {Payload} at {Now}", 
+                job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
 
             try
             {
@@ -213,13 +217,13 @@ public class JobNotificationListener : BackgroundService
                 await AddRunHistory(conn, runHistoryProcessing, tx);
                 
                 var nowDone = DateTimeOffset.UtcNow;
-                var updateResult = await conn.ExecuteAsync(
+                await conn.ExecuteAsync(
                     $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
                     new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
                     transaction: tx
                 );
                 
-                var deleteEnqueuedJobResult = await conn.ExecuteAsync(
+                await conn.ExecuteAsync(
                     "DELETE FROM enqueued_jobs WHERE job_id = @Id",
                     new { job.Id },
                     transaction: tx
@@ -236,7 +240,7 @@ public class JobNotificationListener : BackgroundService
             catch (Exception ex)
             {
                 job.MarkAsFailed();
-                var updateResult = await conn.ExecuteAsync(
+                await conn.ExecuteAsync(
                     @$"UPDATE jobs 
     SET 
         status = @Status, 
@@ -268,7 +272,7 @@ public class JobNotificationListener : BackgroundService
                     transaction: tx
                 );
                 
-                var deleteEnqueuedJobResult = await conn.ExecuteAsync(
+                await conn.ExecuteAsync(
                     "DELETE FROM enqueued_jobs WHERE job_id = @Id",
                     new { job.Id },
                     transaction: tx
@@ -284,15 +288,15 @@ public class JobNotificationListener : BackgroundService
                 });
                 await AddRunHistory(conn, runHistory, tx);
                 
-                Log.Error("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
+                _logger.LogError("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
                 if (job.Status.IsDead())
                 {
-                    Log.Error("Job {JobId} is dead", job.Id);
+                    _logger.LogError("Job {JobId} is dead", job.Id);
                 }
             }
             await tx.CommitAsync(stoppingToken);
             
-            Log.Debug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+            _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
         }
         
     }
@@ -308,7 +312,7 @@ public class JobNotificationListener : BackgroundService
 
     public override void Dispose()
     {
-        Log.Debug("Task Tower worker is shutting down");
+        _logger.LogDebug("Task Tower worker is shutting down");
         _semaphore.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);
