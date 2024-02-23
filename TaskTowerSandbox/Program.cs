@@ -4,13 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
 using Serilog.Sinks.SystemConsole.Themes;
+using TaskTower;
+using TaskTower.Configurations;
+using TaskTower.Domain.QueuePrioritizations;
+using TaskTower.Processing;
 using TaskTowerSandbox;
-using TaskTowerSandbox.Configurations;
-using TaskTowerSandbox.Database;
-using TaskTowerSandbox.Domain.QueuePrioritizationes;
-using TaskTowerSandbox.Domain.TaskTowerJob;
-using TaskTowerSandbox.Domain.TaskTowerJob.Models;
-using TaskTowerSandbox.Processing;
 using TaskTowerSandbox.Sandboxing;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +26,9 @@ Log.Logger = new LoggerConfiguration()
     .WriteTo.Console(theme: AnsiConsoleTheme.Code)
     .CreateLogger();
 builder.Host.UseSerilog();
+
+var serverName = Environment.MachineName;
+Log.Information("Starting {Application} on {MachineName}", builder.Environment.ApplicationName, serverName);
 
 builder.Services.AddHttpClient("PokeAPI", client =>
 {

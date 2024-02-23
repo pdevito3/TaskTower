@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloPgPubSub", "HelloPgPub
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskTowerSandbox", "TaskTowerSandbox\TaskTowerSandbox.csproj", "{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskTower", "TaskTower\TaskTower.csproj", "{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,6 +68,10 @@ Global
 		{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0ACE027A-A080-4F7D-8718-A441E2D8AD5E} = {8BCFC470-74B5-4D22-9752-3864112BEC8A}

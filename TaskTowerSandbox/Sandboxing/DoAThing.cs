@@ -2,11 +2,9 @@ namespace TaskTowerSandbox.Sandboxing;
 
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Database;
-using Domain.JobStatuses;
-using Domain.RunHistories;
-using Domain.RunHistories.Models;
 using Serilog;
+using TaskTower.Database;
+using TaskTower.Domain.JobStatuses;
 
 public class DoAThing
 {
