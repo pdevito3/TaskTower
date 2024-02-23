@@ -487,6 +487,7 @@ app.MapPost("/do-a-job-with-a-few-tags", async (HttpContext http, IBackgroundJob
         
         client.TagJob(jobId, "tag4", "tag5", "tag6");
         client.TagJob(jobId, ["tag7", "tag8", "tag9"]);
+        client.TagJob(jobId,  ["tag10", "tag11"]);
 
         return Results.Ok(new { Message = $"queued job added with ID: {jobId}" });
     }
