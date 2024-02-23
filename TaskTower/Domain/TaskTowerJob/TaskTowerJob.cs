@@ -85,25 +85,25 @@ public class TaskTowerJob
 
     public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
-        var TaskTowerJob = new TaskTowerJob();
+        var taskTowerJob = new TaskTowerJob();
         
-        TaskTowerJob.Id = Guid.NewGuid();
-        TaskTowerJob.Status = JobStatus.Pending();
-        TaskTowerJob.Retries = 0;
-        TaskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 20;
-        TaskTowerJob.RunAfter = jobForCreation.RunAfter ?? DateTimeOffset.UtcNow;
-        TaskTowerJob.Deadline = jobForCreation.Deadline;
-        TaskTowerJob.CreatedAt = DateTimeOffset.UtcNow;
+        taskTowerJob.Id = Guid.NewGuid();
+        taskTowerJob.Status = JobStatus.Pending();
+        taskTowerJob.Retries = 0;
+        taskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 20;
+        taskTowerJob.RunAfter = jobForCreation.RunAfter ?? DateTimeOffset.UtcNow;
+        taskTowerJob.Deadline = jobForCreation.Deadline;
+        taskTowerJob.CreatedAt = DateTimeOffset.UtcNow;
         
-        TaskTowerJob.Type = jobForCreation.Type;
-        TaskTowerJob.Method = jobForCreation.Method;
-        TaskTowerJob.ParameterTypes = jobForCreation.ParameterTypes ?? Array.Empty<string>();
-        TaskTowerJob.Payload = jobForCreation.Payload;
-        TaskTowerJob.Queue = jobForCreation.Queue ?? "default";
+        taskTowerJob.Type = jobForCreation.Type;
+        taskTowerJob.Method = jobForCreation.Method;
+        taskTowerJob.ParameterTypes = jobForCreation.ParameterTypes ?? Array.Empty<string>();
+        taskTowerJob.Payload = jobForCreation.Payload;
+        taskTowerJob.Queue = jobForCreation.Queue ?? "default";
 
         // TaskTowerJob.QueueDomainEvent(new TaskTowerJobCreated(){ TaskTowerJob = TaskTowerJob });
         
-        return TaskTowerJob;
+        return taskTowerJob;
     }
     
     public async Task Invoke(IServiceProvider serviceProvider)
