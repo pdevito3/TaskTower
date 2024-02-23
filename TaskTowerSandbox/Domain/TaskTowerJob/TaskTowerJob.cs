@@ -6,6 +6,7 @@ using EnqueuedJobs;
 using JobStatuses;
 using Models;
 using RunHistories;
+using TaskTowerTags;
 using Utils;
 
 public class TaskTowerJob
@@ -73,6 +74,9 @@ public class TaskTowerJob
     public DateTimeOffset? Deadline { get; private set; }
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
+    
+    private readonly List<TaskTowerTag> _tags = new();
+    internal IReadOnlyCollection<TaskTowerTag> Tags => _tags.AsReadOnly();
     
     private readonly List<RunHistory> _runHistory = new();
     internal IReadOnlyCollection<RunHistory> RunHistory => _runHistory.AsReadOnly();

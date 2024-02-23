@@ -472,6 +472,32 @@ app.MapPost("/do-a-slow-thing", async (HttpContext http, IBackgroundJobClient cl
     }
 });
 
+
+app.MapPost("/do-a-job-with-a-few-tags", async (HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        var command = new DoAThing.Command("this is a tagged job");
+        var jobId = await client.Enqueue<DoAThing>(x => x.Handle(command));
+        client.TagJob(jobId, "tag1")
+            .TagJob(jobId, "tag2");
+        
+        await client.TagJobAsync(jobId, "tag3");
+        await client.TagJobAsync(jobId,  ["tag3", "tag4"]);
+        
+        client.TagJob(jobId, "tag4", "tag5", "tag6");
+        client.TagJob(jobId, ["tag7", "tag8", "tag9"]);
+
+        return Results.Ok(new { Message = $"queued job added with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
 app.Run();
 
 

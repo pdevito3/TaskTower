@@ -9,6 +9,7 @@ using Npgsql;
 using Dapper;
 using Database;
 using Microsoft.Extensions.Options;
+using Serilog;
 
 public interface IBackgroundJobClient
 {
@@ -40,6 +41,13 @@ public interface IBackgroundJobClient
     // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, CancellationToken cancellationToken = default);
     // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
     // Task<Guid> Schedule(Expression<Func<Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
+    
+    Task TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default);
+    IBackgroundJobClient TagJob(Guid jobId, string tag);
+    Task TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default);
+    IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags);
+    // multi tag with params for tag
+    IBackgroundJobClient TagJob(Guid jobId, params string[] tags);
 }
 
 public class BackgroundJobClient : IBackgroundJobClient
@@ -212,6 +220,67 @@ public class BackgroundJobClient : IBackgroundJobClient
         // await CreateJob(job, cancellationToken);
         //
         // return job.Id;
+    }
+    
+    public async Task TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        InsertTag(jobId, conn, tag);
+    }
+    
+    public IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags)
+    {
+        using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
+        conn.Open();
+        
+        foreach (var tag in tags)
+        {
+            InsertTag(jobId, conn, tag);
+        }
+        
+        return this;
+    }
+
+    public IBackgroundJobClient TagJob(Guid jobId, string tag)
+    {
+        using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
+        conn.Open();
+        InsertTag(jobId, conn, tag);
+        
+        return this;
+    }
+    
+    public IBackgroundJobClient TagJob(Guid jobId, params string[] tags)
+        => TagJob(jobId, tags.AsEnumerable()); 
+    
+    public async Task TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        
+        foreach (var tag in tags)
+        {
+            InsertTag(jobId, conn, tag);
+        }
+    }
+
+    private static void InsertTag(Guid jobId, NpgsqlConnection conn, string tag)
+    {
+        try
+        {
+            conn.Execute(
+                "INSERT INTO tags (job_id, name) VALUES (@JobId, @Name)",
+                new
+                {
+                    JobId = jobId,
+                    Name = tag
+                });
+        }
+        catch (PostgresException e) when (e.SqlState == "23505")
+        {
+            Log.Information("Tag '{Tag}' already exists for job '{JobId}'", tag, jobId);
+        }
     }
 
     private string? GetQueue(Type handlerType, string? givenQueue = null)
