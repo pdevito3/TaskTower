@@ -397,8 +397,7 @@ LIMIT {limit};";
                 
             var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
                 $@"
-SELECT id as Id, 
-       fingerprint as Fingerprint, 
+SELECT id as Id,  
        queue as Queue, 
        status as Status, 
        type as Type, 

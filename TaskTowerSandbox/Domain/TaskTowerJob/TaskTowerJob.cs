@@ -13,11 +13,6 @@ public class TaskTowerJob
     public Guid Id { get; private set; }
     
     /// <summary>
-    /// An md5 hash of its queue combined with its JSON-serialized payload
-    /// </summary>
-    public string? Fingerprint { get; private set; }
-    
-    /// <summary>
     /// The queue the job is on
     /// </summary>
     public string? Queue { get; private set; }
@@ -100,7 +95,6 @@ public class TaskTowerJob
         TaskTowerJob.ParameterTypes = jobForCreation.ParameterTypes ?? Array.Empty<string>();
         TaskTowerJob.Payload = jobForCreation.Payload;
         TaskTowerJob.Queue = jobForCreation.Queue ?? "default";
-        TaskTowerJob.FingerprintJob();
 
         // TaskTowerJob.QueueDomainEvent(new TaskTowerJobCreated(){ TaskTowerJob = TaskTowerJob });
         
@@ -187,16 +181,6 @@ public class TaskTowerJob
         {
             await taskResult;
         }
-    }
-    
-    private void FingerprintJob()
-    {
-        if (Fingerprint != null)
-            return;
-
-        var js = System.Text.Json.JsonSerializer.Serialize(Payload);
-        var hash = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(Queue + js));
-        Fingerprint = BitConverter.ToString(hash).Replace("-", "").ToLower();
     }
     
     public TaskTowerJob MarkCompleted(DateTimeOffset ranAt)

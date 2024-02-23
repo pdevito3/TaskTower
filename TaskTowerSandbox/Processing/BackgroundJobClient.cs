@@ -231,8 +231,8 @@ public class BackgroundJobClient : IBackgroundJobClient
         await conn.OpenAsync(cancellationToken);
         
         await conn.ExecuteAsync(
-            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, fingerprint, status, retries) " +
-            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Fingerprint, @Status, @Retries)",
+            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries) " +
+            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries)",
             new
             {
                 job.Id,
@@ -245,7 +245,6 @@ public class BackgroundJobClient : IBackgroundJobClient
                 job.RunAfter,
                 job.Deadline,
                 job.CreatedAt,
-                job.Fingerprint,
                 Status = job.Status.Value,
                 job.Retries,
                 job.RanAt

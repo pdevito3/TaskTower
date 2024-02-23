@@ -11,7 +11,6 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
     {
         builder.HasKey(x => x.Id);
         
-        builder.Property(x => x.Fingerprint).IsRequired();
         builder.Property(x => x.Queue).IsRequired(false);
         builder.Property(x => x.Status)
             .HasConversion(x => x.Value, x => new JobStatus(x))
