@@ -20,6 +20,7 @@ public class JobNotificationListener : BackgroundService
     private readonly SemaphoreSlim _semaphore;
     private readonly TaskTowerOptions _options;
     private readonly ILogger _logger;
+    private Timer _timer = null!;
 
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
     {
@@ -56,7 +57,6 @@ public class JobNotificationListener : BackgroundService
             // var channel = e.Channel;
             
             var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
-
             if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
             {
                 _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
@@ -76,50 +76,59 @@ public class JobNotificationListener : BackgroundService
             }
         };
         
-        // Configure a timer to poll for scheduled jobs at the specified interval
-        var pollingInterval = _options.JobCheckInterval;
-        pollingInterval = pollingInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
-            ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
-            : pollingInterval;
-        _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", pollingInterval);
-        await using var timer = new Timer(async _ =>
-            {
-                await _semaphore.WaitAsync(stoppingToken);
-                try
-                {
-                    await EnqueueScheduledJobs(stoppingToken);
-                }
-                finally
-                {
-                    _semaphore.Release();
-                }
-            },
-            null, TimeSpan.Zero, pollingInterval);
-        
-        var enqueuedJobsInterval = _options.JobCheckInterval;
-        enqueuedJobsInterval = enqueuedJobsInterval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
-            ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
-            : enqueuedJobsInterval;
-        _logger.LogInformation("Polling for enqueued jobs every {EnqueuedJobsInterval}", enqueuedJobsInterval);
-        await using var enqueuedJobsTimer = new Timer(async _ =>
-            {
-                await _semaphore.WaitAsync(stoppingToken);
-                try
-                {
-                    await AnnounceEnqueuedJobs(_options.QueuePriorities, stoppingToken);
-                }
-                finally
-                {
-                    _semaphore.Release();
-                }
-            },
-            null, TimeSpan.Zero, enqueuedJobsInterval);
-        
-        // Keep the service running until a cancellation request is received
+        var scheduledJobsInterval = NormalizeInterval(_options.JobCheckInterval);
+        var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
+        _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
+        _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
+        var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
+        var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
+
+        _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
+        _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
+
+        // // Keep the service running until a cancellation request is received
         while (!stoppingToken.IsCancellationRequested)
         {
             // This call is blocking until a notification is received
             await conn.WaitAsync(stoppingToken);
+        }
+    }
+    private TimeSpan NormalizeInterval(TimeSpan interval)
+    {
+        return interval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            ? TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
+            : interval;
+    }
+
+    private async Task PollingScheduledJobsAsync(PeriodicTimer timer, CancellationToken stoppingToken)
+    {
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            await _semaphore.WaitAsync(stoppingToken);
+            try
+            {
+                await EnqueueScheduledJobs(stoppingToken);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+    }
+
+    private async Task AnnouncingEnqueuedJobsAsync(PeriodicTimer timer, CancellationToken stoppingToken)
+    {
+        while (await timer.WaitForNextTickAsync(stoppingToken))
+        {
+            await _semaphore.WaitAsync(stoppingToken);
+            try
+            {
+                await AnnounceEnqueuedJobs(_options.QueuePriorities, stoppingToken);
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
         }
     }
     
