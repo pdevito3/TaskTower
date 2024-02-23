@@ -101,33 +101,6 @@ public class QueuePrioritization : ValueObject
                 );
                 return scheduledJobs;
             }
-            
-            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn, 
-                NpgsqlTransaction tx,
-                Dictionary<string, int> queuePriorities)
-            {
-                var enqueuedJob = await conn.QueryFirstOrDefaultAsync<EnqueuedJob>(
-                    $@"
-    SELECT job_id as JobId, queue as Queue
-    FROM enqueued_jobs
-    FOR UPDATE SKIP LOCKED
-    LIMIT 1",
-                    transaction: tx
-                );
-                
-                var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
-                    $@"
-SELECT id, queue, payload, retries, type, method, parameter_types, payload
-FROM jobs
-WHERE id = @Id
-FOR UPDATE SKIP LOCKED
-LIMIT 1",
-                    new { Id = enqueuedJob?.JobId },
-                    transaction: tx
-                );
-                
-                return job;
-            }
 
             public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
@@ -143,6 +116,11 @@ LIMIT 1",
                     transaction: tx
                 );
             }
+
+            public override async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
+                NpgsqlTransaction tx,
+                Dictionary<string, int> queuePriorities)
+                => await GetJobToRunBase(conn, tx, queuePriorities);
         }
         
         private class AlphaNumericType : QueuePrioritizationEnum

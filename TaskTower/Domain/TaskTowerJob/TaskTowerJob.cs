@@ -215,24 +215,6 @@ public class TaskTowerJob
         
         return this;
     }
-    
-    public TaskTowerJob ChangeRunAfter(DateTimeOffset runAfter)
-    {
-        RunAfter = runAfter;
-        return this;
-    }
-    
-    public TaskTowerJob ChangeDeadline(DateTimeOffset? deadline)
-    {
-        Deadline = deadline;
-        return this;
-    }
-    
-    public TaskTowerJob ChangMaxRetries(int maxRetries)
-    {
-        MaxRetries = maxRetries;
-        return this;
-    }
 
     private TaskTowerJob() { } // EF Core
 }
