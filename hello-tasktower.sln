@@ -5,22 +5,6 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedKernel", "SharedKernel\SharedKernel.csproj", "{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "RecipeManagement", "RecipeManagement", "{8BCFC470-74B5-4D22-9752-3864112BEC8A}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0ACE027A-A080-4F7D-8718-A441E2D8AD5E}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RecipeManagement", "RecipeManagement\src\RecipeManagement\RecipeManagement.csproj", "{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{D45A7968-5AEA-48E8-88C9-7F0B1B499865}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RecipeManagement.IntegrationTests", "RecipeManagement\tests\RecipeManagement.IntegrationTests\RecipeManagement.IntegrationTests.csproj", "{13B1C6D0-891D-4C6B-9BC3-D16AA8521020}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RecipeManagement.FunctionalTests", "RecipeManagement\tests\RecipeManagement.FunctionalTests\RecipeManagement.FunctionalTests.csproj", "{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RecipeManagement.SharedTestHelpers", "RecipeManagement\tests\RecipeManagement.SharedTestHelpers\RecipeManagement.SharedTestHelpers.csproj", "{2E031670-1467-4440-B2DC-B94FC60EDB18}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RecipeManagement.UnitTests", "RecipeManagement\tests\RecipeManagement.UnitTests\RecipeManagement.UnitTests.csproj", "{01A468E2-3074-4832-AD98-8A17E8E0ABEE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloPgPubSub", "HelloPgPubSub\HelloPgPubSub.csproj", "{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskTowerSandbox", "TaskTowerSandbox\TaskTowerSandbox.csproj", "{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}"
@@ -40,26 +24,6 @@ Global
 		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{13B1C6D0-891D-4C6B-9BC3-D16AA8521020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{13B1C6D0-891D-4C6B-9BC3-D16AA8521020}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{13B1C6D0-891D-4C6B-9BC3-D16AA8521020}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{13B1C6D0-891D-4C6B-9BC3-D16AA8521020}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2E031670-1467-4440-B2DC-B94FC60EDB18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2E031670-1467-4440-B2DC-B94FC60EDB18}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2E031670-1467-4440-B2DC-B94FC60EDB18}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2E031670-1467-4440-B2DC-B94FC60EDB18}.Release|Any CPU.Build.0 = Release|Any CPU
-		{01A468E2-3074-4832-AD98-8A17E8E0ABEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{01A468E2-3074-4832-AD98-8A17E8E0ABEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{01A468E2-3074-4832-AD98-8A17E8E0ABEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{01A468E2-3074-4832-AD98-8A17E8E0ABEE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -74,12 +38,5 @@ Global
 		{8D19E80E-DE7E-4CD0-B89A-168277DA70C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{0ACE027A-A080-4F7D-8718-A441E2D8AD5E} = {8BCFC470-74B5-4D22-9752-3864112BEC8A}
-		{3E07CBAA-469D-420E-ADD5-0ADA6B057BEC} = {0ACE027A-A080-4F7D-8718-A441E2D8AD5E}
-		{D45A7968-5AEA-48E8-88C9-7F0B1B499865} = {8BCFC470-74B5-4D22-9752-3864112BEC8A}
-		{13B1C6D0-891D-4C6B-9BC3-D16AA8521020} = {D45A7968-5AEA-48E8-88C9-7F0B1B499865}
-		{F0DF06DC-DEDD-491E-8E82-8EAB16F34BFB} = {D45A7968-5AEA-48E8-88C9-7F0B1B499865}
-		{2E031670-1467-4440-B2DC-B94FC60EDB18} = {D45A7968-5AEA-48E8-88C9-7F0B1B499865}
-		{01A468E2-3074-4832-AD98-8A17E8E0ABEE} = {D45A7968-5AEA-48E8-88C9-7F0B1B499865}
 	EndGlobalSection
 EndGlobal

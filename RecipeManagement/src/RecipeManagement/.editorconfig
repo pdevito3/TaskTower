@@ -1,2 +1,0 @@
-[*.cs]
-dotnet_diagnostic.RMG012.severity = error # Unmapped or non-automappable target member for Mapperly
