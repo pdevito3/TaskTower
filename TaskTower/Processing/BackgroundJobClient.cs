@@ -42,9 +42,9 @@ public interface IBackgroundJobClient
     // Task<Guid> Enqueue(Expression<Func<Task>> methodCall, string? queue, CancellationToken cancellationToken = default);
     // Task<Guid> Schedule(Expression<Func<Task>> methodCall, TimeSpan delay, CancellationToken cancellationToken = default);
     
-    Task TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default);
+    Task<IBackgroundJobClient> TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default);
     IBackgroundJobClient TagJob(Guid jobId, string tag);
-    Task TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default);
+    Task<IBackgroundJobClient> TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default);
     IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags);
     // multi tag with params for tag
     IBackgroundJobClient TagJob(Guid jobId, params string[] tags);
@@ -224,11 +224,13 @@ public class BackgroundJobClient : IBackgroundJobClient
         // return job.Id;
     }
     
-    public async Task TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default)
+    public async Task<IBackgroundJobClient> TagJobAsync(Guid jobId, string tag, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         await conn.OpenAsync(cancellationToken);
         InsertTag(jobId, conn, tag, _logger);
+        
+        return this;
     }
     
     public IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags)
@@ -256,7 +258,7 @@ public class BackgroundJobClient : IBackgroundJobClient
     public IBackgroundJobClient TagJob(Guid jobId, params string[] tags)
         => TagJob(jobId, tags.AsEnumerable()); 
     
-    public async Task TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default)
+    public async Task<IBackgroundJobClient> TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         await conn.OpenAsync(cancellationToken);
@@ -265,6 +267,8 @@ public class BackgroundJobClient : IBackgroundJobClient
         {
             InsertTag(jobId, conn, tag, _logger);
         }
+        
+        return this;
     }
 
     private static void InsertTag(Guid jobId, NpgsqlConnection conn, string tag, ILogger logger)
