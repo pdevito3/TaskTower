@@ -74,7 +74,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     });
     x.AddJobConfiguration<DoAMiddlewareThing>(x =>
     {
-        x.WithActivator<JobWithUserContextInterceptor>();
+        x.WithInterceptor<JobWithUserContextInterceptor>();
     });
 });
 
@@ -100,7 +100,7 @@ app.MapPost("/create-middleware-job", async (string user, HttpContext http, IBac
     {
         var command = new DoAMiddlewareThing.Command(user);
         var jobId = await client
-            .WithCreationMiddleware<JobUserMiddlewareWasAttribute>()
+            .WithCreationMiddleware<JobUserAssignmentMiddleware>()
             .Enqueue<DoAMiddlewareThing>(x => x.Handle(command));
 
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });

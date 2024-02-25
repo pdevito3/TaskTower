@@ -106,7 +106,7 @@ public class TaskTowerOptions
         public string? DisplayName { get; set; }
         public int? MaxRetryCount { get; set; }
 
-        public void WithActivator<TActivator>()
+        public void WithInterceptor<TActivator>()
             where TActivator : JobInterceptor
         {
             Activators.Add(typeof(TActivator));

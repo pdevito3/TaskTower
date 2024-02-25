@@ -2,10 +2,7 @@ namespace TaskTowerSandbox.Sandboxing;
 
 using TaskTower.Processing;
 
-/// <summary>
-/// Adds user context when enqueuing your job that can be used by the job via the activator
-/// </summary>
-public class CurrentUserJobMiddlewareWasAttribute : IJobCreationMiddleware
+public class CurrentUserAssignmentMiddleware : IJobCreationMiddleware
 {
     public void OnCreating(CreatingContext context)
     {
@@ -23,7 +20,7 @@ public class CurrentUserJobMiddlewareWasAttribute : IJobCreationMiddleware
     }
 }
 
-public class JobUserMiddlewareWasAttribute : IJobCreationMiddleware
+public class JobUserAssignmentMiddleware : IJobCreationMiddleware
 {
     public void OnCreating(CreatingContext context)
     {
