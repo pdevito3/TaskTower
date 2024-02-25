@@ -76,14 +76,6 @@ public class TaskTowerOptions
     public Dictionary<Type, string> QueueAssignments
         =>  JobConfigurations.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Queue);
     
-    public void AddJobConfiguration<T>(Action<JobConfiguration> configure)
-    {
-        var config = new JobConfiguration();
-        configure(config);
-
-        JobConfigurations[typeof(T)] = config;
-    }
-    
     public int? GetMaxRetryCount(Type? type)
     {
         if (type != null && JobConfigurations.TryGetValue(type, out var config))
@@ -95,23 +87,48 @@ public class TaskTowerOptions
     public List<Type> GetInterceptors(Type? type)
     {
         if (type != null && JobConfigurations.TryGetValue(type, out var config))
-            return config.Activators;
+            return config.JobInterceptors;
         
         return new List<Type>();
     }
+    public JobConfiguration AddJobConfiguration<T>()
+    {
+        var config = new JobConfiguration();
+        JobConfigurations[typeof(T)] = config;
+        return config; // This assumes you want to directly return the JobConfiguration for chaining
+    }
+
     
     public class JobConfiguration
     {
-        public string? Queue { get; set; }
-        public string? DisplayName { get; set; }
-        public int? MaxRetryCount { get; set; }
+        public string? Queue { get; private set; }
+        public string? DisplayName { get; private set; }
+        public int? MaxRetryCount { get; private set; }
+        public List<Type> JobInterceptors { get; private set; } = new List<Type>();
 
-        public void WithInterceptor<TActivator>()
-            where TActivator : JobInterceptor
+        // Enables fluent configuration by returning 'this'
+        public JobConfiguration SetQueue(string queue)
         {
-            Activators.Add(typeof(TActivator));
+            Queue = queue;
+            return this;
         }
-        
-        public List<Type> Activators { get; private set; } = new List<Type>();
+
+        public JobConfiguration SetDisplayName(string displayName)
+        {
+            DisplayName = displayName;
+            return this;
+        }
+
+        public JobConfiguration SetMaxRetryCount(int maxRetryCount)
+        {
+            MaxRetryCount = maxRetryCount;
+            return this;
+        }
+
+        public JobConfiguration WithInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
+        {
+            JobInterceptors.Add(typeof(TJobInterceptor));
+            return this;
+        }
     }
 }

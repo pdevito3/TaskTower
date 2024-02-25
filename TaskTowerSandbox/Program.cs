@@ -54,28 +54,26 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     x.QueuePrioritization = QueuePrioritization.None();
     // x.IdleTransactionTimeout = 1000;
     
-    x.AddJobConfiguration<DoAPossiblyFailingThing>(x =>
-    {
-        x.Queue = "critical";
-        x.DisplayName = "Possibly Failing Task";
-        x.MaxRetryCount = 2;
-    });
-    x.AddJobConfiguration<DoACriticalThing>(x =>
-    {
-        x.Queue = "critical";
-        x.DisplayName = "Critical Task";
-        x.MaxRetryCount = 5;
-    });
-    x.AddJobConfiguration<DoALowThing>(x =>
-    {
-        x.Queue = "low";
-        x.DisplayName = "Low Task";
-        x.MaxRetryCount = 1;
-    });
-    x.AddJobConfiguration<DoAMiddlewareThing>(x =>
-    {
-        x.WithInterceptor<JobWithUserContextInterceptor>();
-    });
+    x.AddJobConfiguration<DoAPossiblyFailingThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Possibly Failing Task")
+        .SetMaxRetryCount(2);
+
+    x.AddJobConfiguration<DoACriticalThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Critical Task")
+        .SetMaxRetryCount(5);
+
+    x.AddJobConfiguration<DoALowThing>()
+        .SetQueue("low")
+        .SetDisplayName("Low Task")
+        .SetMaxRetryCount(1);
+    
+    x.AddJobConfiguration<DoAMiddlewareThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Middleware Task")
+        .SetMaxRetryCount(1)
+        .WithInterceptor<JobWithUserContextInterceptor>()
 });
 
 // builder.Services.AddScoped<IDummyLogger, DummyLogger>();
