@@ -398,19 +398,6 @@ LIMIT 1",
                 transaction: tx
             );
 
-            if (job?.RawContextParameters != null)
-            {
-                var rawContextParameters =
-                    JsonSerializer.Deserialize<Dictionary<string, object>>(job?.RawContextParameters);
-                if (rawContextParameters != null)
-                {
-                    foreach (var (key, value) in rawContextParameters)
-                    {
-                        job.SetContextParameter(key, value);
-                    }
-                }
-            }
-
             return job;
         }
     }

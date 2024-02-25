@@ -25,7 +25,7 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
             .HasColumnType("jsonb");
         builder.Property(x => x.Retries).IsRequired();
 
-        builder.Property<Dictionary<string, object>>("_contextParameters")
+        builder.Property(x => x.RawContextParameters)
             .HasColumnName("context_parameters")
             .HasColumnType("jsonb")
             .IsRequired(false);

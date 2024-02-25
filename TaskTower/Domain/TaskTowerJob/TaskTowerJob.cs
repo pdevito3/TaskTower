@@ -74,10 +74,12 @@ public class TaskTowerJob
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
     
-    private readonly Dictionary<string, object> _contextParameters = new();
-    public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters;
+    private readonly Dictionary<string, object> _contextParameters =  new();
+    public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters.Count > 0 
+        ? _contextParameters 
+        : JsonSerializer.Deserialize<Dictionary<string, object>>(RawContextParameters) ?? new Dictionary<string, object>();
     
-    public string RawContextParameters { get; }
+    public string RawContextParameters { get; private set; }
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
     
@@ -224,6 +226,7 @@ public class TaskTowerJob
     internal TaskTowerJob SetContextParameter(string key, object value)
     {
         _contextParameters[key] = value;
+        RawContextParameters = JsonSerializer.Serialize(_contextParameters);
         return this;
     }
 

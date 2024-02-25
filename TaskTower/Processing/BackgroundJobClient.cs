@@ -315,9 +315,6 @@ public class BackgroundJobClient : IBackgroundJobClient
         var creationContext = new CreatingContext(job);
         _jobCreationMiddleware?.OnCreating(creationContext);
         
-        // serialize job.ContextParameters
-        var contextParameters = JsonSerializer.Serialize(job.ContextParameters);
-        
         // TODO connection string check
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         await conn.OpenAsync(cancellationToken);
@@ -340,7 +337,7 @@ public class BackgroundJobClient : IBackgroundJobClient
                 Status = job.Status.Value,
                 job.Retries,
                 job.RanAt,
-                ContextParameters = contextParameters
+                ContextParameters = job.RawContextParameters
             });
         
         // _dbContext.Jobs.Add(job);
