@@ -19,13 +19,13 @@ public class DoAThing
 
 
 
-public class DoAMiddlewareThing(IDummyLogger logger, IJobContextAccessor jobContextAccessor)
+public class DoAMiddlewareThing(IJobContextAccessor jobContextAccessor)
 {
     public sealed record Command(string? User) : IJobWithUserContext;
     
     public async Task Handle(Command request)
     {
-        logger.Log($"Handled DoAMiddlewareThing with a user from the param as: {request.User} and from the context as: {jobContextAccessor?.UserContext?.User}");
+        Log.Information("Handled DoAMiddlewareThing with a user from the param as: {RequestUser} and from the context as: {UserContextUser}", request.User, jobContextAccessor?.UserContext?.User);
     }
 }
 

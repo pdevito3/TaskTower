@@ -32,30 +32,28 @@ public class JobUserMiddlewareWasAttribute : IJobCreationMiddleware
     }
 }
 
-public class JobWithUserContextActivator : JobActivator
+public class JobWithUserContextInterceptor : JobInterceptor
 {
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IServiceProvider _serviceProvider;
     
-    public JobWithUserContextActivator(IServiceScopeFactory serviceScopeFactory) : base(serviceScopeFactory)
+    public JobWithUserContextInterceptor(IServiceProvider serviceProvider) : base(serviceProvider)
     {
-        _serviceScopeFactory = serviceScopeFactory ?? throw new ArgumentNullException(nameof(serviceScopeFactory));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
-    public override JobServiceScope BeginScope(JobContext context)
+    public override JobServiceProvider Intercept(JobContext context)
     {
-        var user = context.GetContextParameter<string>("User");
+        var user = context.GetContextParameter<object>("User");
         
         if (user == null)
         {
-            return base.BeginScope(context);
+            return base.Intercept(context);
         }
-        
-        var serviceScope = _serviceScopeFactory.CreateScope();
 
-        var userContextForJob = serviceScope.ServiceProvider.GetRequiredService<IJobContextAccessor>();
-        userContextForJob.UserContext = new JobWithUserContext {User = user};
+        var userContextForJob = _serviceProvider.GetRequiredService<IJobContextAccessor>();
+        userContextForJob.UserContext = new JobWithUserContext {User = user.ToString()};
 
-        return new JobServiceScope(serviceScope);
+        return new JobServiceProvider(_serviceProvider);
     }
 }
 

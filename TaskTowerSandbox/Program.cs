@@ -72,13 +72,13 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         x.DisplayName = "Low Task";
         x.MaxRetryCount = 1;
     });
-    // x.AddJobConfiguration<DoAMiddlewareThing>(x =>
-    // {
-    //     x.WithActivator<JobWithUserContextActivator>(builder?.Services);
-    // });
+    x.AddJobConfiguration<DoAMiddlewareThing>(x =>
+    {
+        x.WithActivator<JobWithUserContextInterceptor>();
+    });
 });
 
-builder.Services.AddScoped<IDummyLogger, DummyLogger>();
+// builder.Services.AddScoped<IDummyLogger, DummyLogger>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

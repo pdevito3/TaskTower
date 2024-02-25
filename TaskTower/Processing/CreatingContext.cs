@@ -45,47 +45,50 @@ public class JobContext
             throw new ArgumentNullException(nameof (name));
         return _contextParameters.TryGetValue(name, out var parameter) ? (T) parameter : default (T);
     }
-}
-
-public class JobActivator
-{
-    private readonly IServiceScopeFactory _serviceScopeFactory;
-
-    public JobActivator(IServiceScopeFactory serviceScopeFactory)
+    
+    public static JobContext Create(TaskTowerJob job)
     {
-        _serviceScopeFactory = serviceScopeFactory != null 
-            ? serviceScopeFactory 
-            : throw new ArgumentNullException(nameof (serviceScopeFactory));
-    }
-
-    public virtual JobServiceScope BeginScope(JobContext context)
-    {
-        return new JobServiceScope(_serviceScopeFactory.CreateScope());
-    }
-
-    public virtual JobServiceScope BeginScope()
-    {
-        return new JobServiceScope(_serviceScopeFactory.CreateScope());
+        var context = new JobContext();
+        foreach (var contextParameter in job.ContextParameters)
+        {
+            context.SetContextParameter(contextParameter.Key, contextParameter.Value);
+        }
+        return context;
     }
 }
 
-public class JobServiceScope
+public class JobInterceptor
 {
-    private readonly IServiceScope _serviceScope;
+    private readonly IServiceProvider _serviceProvider;
 
-    public JobServiceScope(IServiceScope serviceScope)
+    public JobInterceptor(IServiceProvider serviceProvider)
     {
-        _serviceScope = serviceScope ?? throw new ArgumentNullException(nameof(serviceScope));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
+
+    public virtual JobServiceProvider Intercept(JobContext context)
+    {
+        return new JobServiceProvider(_serviceProvider);
+    }
+
+    public virtual JobServiceProvider Intercept()
+    {
+        return new JobServiceProvider(_serviceProvider);
+    }
+}
+
+public class JobServiceProvider
+{
+    private readonly IServiceProvider _serviceProvider;
+
+    public JobServiceProvider(IServiceProvider serviceProvider)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
     
-    public T? GetService<T>()
+    public IServiceProvider GetServiceProvider()
     {
-        return _serviceScope.ServiceProvider.GetService<T>();
-    }
-
-    public void Dispose()
-    {
-        _serviceScope.Dispose();
+        return _serviceProvider;
     }
 }
 

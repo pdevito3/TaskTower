@@ -76,6 +76,8 @@ public class TaskTowerJob
     
     private readonly Dictionary<string, object> _contextParameters = new();
     public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters;
+    
+    public string RawContextParameters { get; }
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
     
