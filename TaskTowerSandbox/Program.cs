@@ -98,7 +98,7 @@ app.MapPost("/create-middleware-job", async (string user, HttpContext http, IBac
     {
         var command = new DoAMiddlewareThing.Command(user);
         var jobId = await client
-            .WithCreationMiddleware<JobUserAssignmentMiddleware>()
+            .WithContext<JobUserAssignmentContext>()
             .Enqueue<DoAMiddlewareThing>(x => x.Handle(command));
 
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });

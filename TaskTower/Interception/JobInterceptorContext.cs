@@ -4,7 +4,10 @@ using System.Text.Json;
 using TaskTower.Domain;
 using TaskTower.Domain.TaskTowerJob;
 
-public class JobContext
+/// <summary>
+/// Provides context from a job during interceptor execution
+/// </summary>
+public class JobInterceptorContext
 {
     private readonly List<ContextParameter> _contextParameters = new();
     public IReadOnlyList<ContextParameter> ContextParameters => _contextParameters;
@@ -55,9 +58,9 @@ public class JobContext
         }
     }
     
-    public static JobContext Create(TaskTowerJob job)
+    public static JobInterceptorContext Create(TaskTowerJob job)
     {
-        var context = new JobContext();
+        var context = new JobInterceptorContext();
         context._contextParameters.AddRange(job.ContextParameters);
         return context;
     }

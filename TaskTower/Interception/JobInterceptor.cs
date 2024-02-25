@@ -9,7 +9,7 @@ public class JobInterceptor
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
-    public virtual JobServiceProvider Intercept(JobContext context)
+    public virtual JobServiceProvider Intercept(JobInterceptorContext interceptorContext)
     {
         return new JobServiceProvider(_serviceProvider);
     }

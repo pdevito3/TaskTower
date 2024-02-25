@@ -4,9 +4,9 @@ using TaskTower.Interception;
 using TaskTower.Middleware;
 using TaskTower.Processing;
 
-public class CurrentUserAssignmentMiddleware : IJobCreationMiddleware
+public class CurrentUserAssignmentContext : IJobContextualizer
 {
-    public void OnCreating(JobCreation context)
+    public void EnrichContext(JobContext context)
     {
         var argue = context.Job.ContextParameters.FirstOrDefault(x => x is IJobWithUserContext);
         if (argue == null)
@@ -22,9 +22,9 @@ public class CurrentUserAssignmentMiddleware : IJobCreationMiddleware
     }
 }
 
-public class JobUserAssignmentMiddleware : IJobCreationMiddleware
+public class JobUserAssignmentContext : IJobContextualizer
 {
-    public void OnCreating(JobCreation context)
+    public void EnrichContext(JobContext context)
     {
         var user = "job-user-346f9812-16da-4a72-9db2-f066661d6593";
         var isNull = new Random().Next(0, 2) == 0;
@@ -46,14 +46,14 @@ public class JobWithUserContextInterceptor : JobInterceptor
         _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
     }
 
-    public override JobServiceProvider Intercept(JobContext context)
+    public override JobServiceProvider Intercept(JobInterceptorContext interceptorContext)
     {
-        var user = context.GetContextParameter<string>("User");
-        var userId = context.GetContextParameter<Guid>("UserId");
+        var user = interceptorContext.GetContextParameter<string>("User");
+        var userId = interceptorContext.GetContextParameter<Guid>("UserId");
         
         if (user == null)
         {
-            return base.Intercept(context);
+            return base.Intercept(interceptorContext);
         }
 
         var userContextForJob = _serviceProvider.GetRequiredService<IJobContextAccessor>();

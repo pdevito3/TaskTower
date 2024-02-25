@@ -227,7 +227,7 @@ public class JobNotificationListener : BackgroundService
                         continue;
                     }
                     var jobInterceptorInstance = Activator.CreateInstance(interceptor, serviceProvider) as JobInterceptor;
-                    var updatedScope = jobInterceptorInstance?.Intercept(JobContext.Create(job));
+                    var updatedScope = jobInterceptorInstance?.Intercept(JobInterceptorContext.Create(job));
 
                     var updatedSp = updatedScope?.GetServiceProvider();
                     if (updatedSp != null)
