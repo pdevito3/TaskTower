@@ -250,7 +250,7 @@ public class TaskTowerJob
         if (typeName == null)
             throw new InvalidOperationException("Unable to get the fully qualified name of the type.");
 
-        _contextParameters.Add(new ContextParameter(name, typeName, value.ToString()));
+        _contextParameters.Add(new ContextParameter(name, typeName, value));
         RawContextParameters = JsonSerializer.Serialize(_contextParameters);
         
         return this;

@@ -2,7 +2,7 @@ namespace TaskTower.Processing;
 
 using Domain;
 using Domain.TaskTowerJob;
-using Microsoft.Extensions.DependencyInjection;
+using System.Text.Json;
 
 public class CreatingContext
 {
@@ -41,7 +41,7 @@ public class JobContext
         var contextParameter = _contextParameters.FirstOrDefault(x => x.Name == name);
         
         if (contextParameter == null)
-            return default;
+            throw new ArgumentException($"Context parameter with name {name} not found");
         
         var contextParameterType = Type.GetType(contextParameter.Type);
         
@@ -51,10 +51,32 @@ public class JobContext
             return default;
         }
         
-        if (contextParameter.Value == null)
-            return default;
+        if (contextParameterType == null)
+            throw new ArgumentException($"Context parameter with name {name} has a null type");
         
-        return (T) Convert.ChangeType(contextParameter.Value, typeof(T));
+        try
+        {
+            // Assuming contextParameter.Value is either a string containing JSON or a JsonElement
+            var jsonValue = contextParameter.Value is JsonElement jsonElement
+                ? jsonElement.GetRawText()
+                : contextParameter?.Value?.ToString();
+            //
+            // // if (Nullable.GetUnderlyingType(contextParameterType) != null)
+            // //     return null; // It's nullable, return null
+            //
+            // if (jsonValue == null)
+            //     jsonValue = "{}";
+            
+            if (jsonValue == null)
+                // TODO need to add null handling
+                throw new ArgumentException($"Context parameter with name {name} has a null value");
+            
+            return JsonSerializer.Deserialize<T>(jsonValue);
+        }
+        catch (JsonException)
+        {
+            throw new ArgumentException($"Context parameter with name {name} could not be deserialized to type {typeof(T).Name}");
+        }
     }
     
     public static JobContext Create(TaskTowerJob job)
