@@ -73,6 +73,31 @@ public class TaskTowerJob
     /// The time after which the job should no longer be run
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
+    
+    private readonly List<ContextParameter> _contextParameters = new();
+
+    public IReadOnlyList<ContextParameter> ContextParameters
+    {
+        get
+        {
+            if (_contextParameters.Count > 0)
+            {
+                return _contextParameters;
+            }
+            else if (!string.IsNullOrEmpty(RawContextParameters))
+            {
+                var deserializedParameters = JsonSerializer.Deserialize<List<ContextParameter>>(RawContextParameters);
+                if (deserializedParameters != null)
+                {
+                    _contextParameters.AddRange(deserializedParameters);
+                }
+            }
+
+            return _contextParameters ?? new List<ContextParameter>();
+        }
+    }
+    
+    public string RawContextParameters { get; private set; }
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
     
@@ -83,7 +108,7 @@ public class TaskTowerJob
     internal IReadOnlyCollection<RunHistory> RunHistory => _runHistory.AsReadOnly();
 
 
-    public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
+    internal static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
         var taskTowerJob = new TaskTowerJob();
         
@@ -106,7 +131,7 @@ public class TaskTowerJob
         return taskTowerJob;
     }
     
-    public async Task Invoke(IServiceProvider serviceProvider)
+    internal async Task Invoke(IServiceProvider serviceProvider)
     {
         var handlerType = System.Type.GetType(Type);
         if (handlerType == null) throw new InvalidOperationException($"Handler type '{Type}' not found.");
@@ -188,14 +213,14 @@ public class TaskTowerJob
         }
     }
     
-    public TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
+    internal TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
     {
         Status = JobStatus.Completed();
         RanAt = ranAt;
         return this;
     }
     
-    public TaskTowerJob MarkAsFailed()
+    internal TaskTowerJob MarkAsFailed()
     {
         Status = JobStatus.Failed();
         RanAt = DateTimeOffset.UtcNow;
@@ -212,6 +237,21 @@ public class TaskTowerJob
         
         if (Retries >= MaxRetries)
             Status = JobStatus.Dead();
+        
+        return this;
+    }
+    
+    internal TaskTowerJob SetContextParameter(string name, object value)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentNullException(nameof(name));
+        
+        var typeName = value.GetType().AssemblyQualifiedName;
+        if (typeName == null)
+            throw new InvalidOperationException("Unable to get the fully qualified name of the type.");
+
+        _contextParameters.Add(new ContextParameter(name, typeName, value));
+        RawContextParameters = JsonSerializer.Serialize(_contextParameters);
         
         return this;
     }

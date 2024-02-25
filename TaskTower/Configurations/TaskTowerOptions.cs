@@ -1,6 +1,8 @@
 namespace TaskTower.Configurations;
 
 using Domain.QueuePrioritizations;
+using Microsoft.Extensions.DependencyInjection;
+using Processing;
 
 public class TaskTowerOptions
 {
@@ -90,10 +92,26 @@ public class TaskTowerOptions
         return null;
     }
     
+    public List<Type> GetInterceptors(Type? type)
+    {
+        if (type != null && JobConfigurations.TryGetValue(type, out var config))
+            return config.Activators;
+        
+        return new List<Type>();
+    }
+    
     public class JobConfiguration
     {
         public string? Queue { get; set; }
         public string? DisplayName { get; set; }
         public int? MaxRetryCount { get; set; }
+
+        public void WithInterceptor<TActivator>()
+            where TActivator : JobInterceptor
+        {
+            Activators.Add(typeof(TActivator));
+        }
+        
+        public List<Type> Activators { get; private set; } = new List<Type>();
     }
 }

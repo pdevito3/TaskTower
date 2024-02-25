@@ -17,6 +17,23 @@ public class DoAThing
     }
 }
 
+
+
+public class DoAMiddlewareThing(IJobContextAccessor jobContextAccessor)
+{
+    public sealed record Command(string? User) : IJobWithUserContext;
+    
+    public async Task Handle(Command request)
+    {
+        Log.Information("Handled DoAMiddlewareThing with a user from the param as: {RequestUser} and from the context as: {UserContextUser} with an Id of {Id} with this noteworth thing: {Note}", 
+            request.User, 
+            jobContextAccessor?.UserContext?.User,
+            jobContextAccessor?.UserContext?.UserId,
+            jobContextAccessor?.UserContext?.NullableNote);
+
+    }
+}
+
 public class DoAnInjectableThing(IDummyLogger logger, TaskTowerDbContext context, PokeApiService pokeApiService)
 {
     public sealed record Command(string Data);

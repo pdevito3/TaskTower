@@ -215,6 +215,27 @@ public class JobNotificationListener : BackgroundService
 
             try
             {
+                // TODO add activator trace
+                var jobType = Type.GetType(job.Type);
+                var interceptors = _options.GetInterceptors(jobType);
+                foreach (var interceptor in interceptors)
+                {
+                    if (!typeof(JobInterceptor).IsAssignableFrom(interceptor))
+                    {
+                        _logger.LogWarning("Activator {Activator} is not a JobActivator", interceptor);
+                        continue;
+                    }
+                    var jobInterceptorInstance = Activator.CreateInstance(interceptor, serviceProvider) as JobInterceptor;
+                    var updatedScope = jobInterceptorInstance?.Intercept(JobContext.Create(job));
+
+                    var updatedSp = updatedScope?.GetServiceProvider();
+                    if (updatedSp != null)
+                    {
+                        serviceProvider = updatedSp;
+                    }
+                }
+                // TODO end trace
+                
                 await job.Invoke(serviceProvider);
                 var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
                 {

@@ -1,6 +1,7 @@
 namespace TaskTower.Domain.QueuePrioritizations;
 
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using Ardalis.SmartEnum;
 using Dapper;
 using EnqueuedJobs;
@@ -387,7 +388,8 @@ SELECT id as Id,
        run_after as RunAfter, 
        ran_at as RanAt, 
        created_at as CreatedAt, 
-       deadline as Deadline
+       deadline as Deadline,
+       context_parameters as RawContextParameters
 FROM jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
