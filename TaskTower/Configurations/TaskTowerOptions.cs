@@ -1,6 +1,7 @@
 namespace TaskTower.Configurations;
 
 using Domain.QueuePrioritizations;
+using Interception;
 using Microsoft.Extensions.DependencyInjection;
 using Processing;
 

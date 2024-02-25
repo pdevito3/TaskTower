@@ -7,6 +7,7 @@ using Dapper;
 using Domain.JobStatuses;
 using Domain.RunHistories;
 using Domain.RunHistories.Models;
+using Interception;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -222,7 +223,7 @@ public class JobNotificationListener : BackgroundService
                 {
                     if (!typeof(JobInterceptor).IsAssignableFrom(interceptor))
                     {
-                        _logger.LogWarning("Activator {Activator} is not a JobActivator", interceptor);
+                        _logger.LogWarning("Interceptor {Interceptor} is not a JobInterceptor", interceptor);
                         continue;
                     }
                     var jobInterceptorInstance = Activator.CreateInstance(interceptor, serviceProvider) as JobInterceptor;

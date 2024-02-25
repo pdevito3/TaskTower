@@ -1,32 +1,8 @@
-namespace TaskTower.Processing;
+namespace TaskTower.Interception;
 
-using Domain;
-using Domain.TaskTowerJob;
 using System.Text.Json;
-
-public class CreatingContext
-{
-    public TaskTowerJob Job { get; private set; }
-    public void SetJobContextParameter(string name, object value)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentNullException(nameof (name));
-        Job.SetContextParameter(name, value);
-    }
-    
-    internal CreatingContext(TaskTowerJob job)
-    {
-        Job = job;
-    }
-}
-
-/// <summary>
-/// Allows you to add context when enqueuing your job during creation that can be used by the job activator
-/// </summary>
-public interface IJobCreationMiddleware
-{
-    public void OnCreating(CreatingContext context);
-}
+using TaskTower.Domain;
+using TaskTower.Domain.TaskTowerJob;
 
 public class JobContext
 {
@@ -86,41 +62,3 @@ public class JobContext
         return context;
     }
 }
-
-public class JobInterceptor
-{
-    private readonly IServiceProvider _serviceProvider;
-
-    public JobInterceptor(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
-
-    public virtual JobServiceProvider Intercept(JobContext context)
-    {
-        return new JobServiceProvider(_serviceProvider);
-    }
-
-    public virtual JobServiceProvider Intercept()
-    {
-        return new JobServiceProvider(_serviceProvider);
-    }
-}
-
-public class JobServiceProvider
-{
-    private readonly IServiceProvider _serviceProvider;
-
-    public JobServiceProvider(IServiceProvider serviceProvider)
-    {
-        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-    }
-    
-    public IServiceProvider GetServiceProvider()
-    {
-        return _serviceProvider;
-    }
-}
-
-
-// ---- this will go in the client app

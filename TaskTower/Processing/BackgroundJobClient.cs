@@ -9,6 +9,7 @@ using Domain.TaskTowerJob;
 using Domain.TaskTowerJob.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Middleware;
 using Npgsql;
 
 public interface IBackgroundJobClient
@@ -312,7 +313,7 @@ public class BackgroundJobClient : IBackgroundJobClient
 
     private async Task CreateJob(TaskTowerJob job, CancellationToken cancellationToken = default)
     {
-        var creationContext = new CreatingContext(job);
+        var creationContext = new JobCreation(job);
         _jobCreationMiddleware?.OnCreating(creationContext);
         
         // TODO connection string check

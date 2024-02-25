@@ -1,10 +1,12 @@
 namespace TaskTowerSandbox.Sandboxing;
 
+using TaskTower.Interception;
+using TaskTower.Middleware;
 using TaskTower.Processing;
 
 public class CurrentUserAssignmentMiddleware : IJobCreationMiddleware
 {
-    public void OnCreating(CreatingContext context)
+    public void OnCreating(JobCreation context)
     {
         var argue = context.Job.ContextParameters.FirstOrDefault(x => x is IJobWithUserContext);
         if (argue == null)
@@ -22,7 +24,7 @@ public class CurrentUserAssignmentMiddleware : IJobCreationMiddleware
 
 public class JobUserAssignmentMiddleware : IJobCreationMiddleware
 {
-    public void OnCreating(CreatingContext context)
+    public void OnCreating(JobCreation context)
     {
         var user = "job-user-346f9812-16da-4a72-9db2-f066661d6593";
         var isNull = new Random().Next(0, 2) == 0;
