@@ -1,8 +1,10 @@
 namespace TaskTower.Database.EntityConfigurations;
 
+using System.Text.Json;
 using Domain.JobStatuses;
 using Domain.TaskTowerJob;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
@@ -22,6 +24,12 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
         builder.Property(x => x.Payload)
             .HasColumnType("jsonb");
         builder.Property(x => x.Retries).IsRequired();
+
+        builder.Property<Dictionary<string, object>>("_contextParameters")
+            .HasColumnName("context_parameters")
+            .HasColumnType("jsonb")
+            .IsRequired(false);
+
         builder.Property(x => x.MaxRetries).IsRequired(false);
         builder.Property(x => x.RunAfter).IsRequired();
         builder.Property(x => x.RanAt).IsRequired(false);

@@ -48,6 +48,9 @@ public interface IBackgroundJobClient
     IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags);
     // multi tag with params for tag
     IBackgroundJobClient TagJob(Guid jobId, params string[] tags);
+    
+    IBackgroundJobClient WithCreationMiddleware<TCreationMiddleware>() 
+        where TCreationMiddleware : IJobCreationMiddleware;
 }
 
 public class BackgroundJobClient : IBackgroundJobClient
@@ -55,6 +58,7 @@ public class BackgroundJobClient : IBackgroundJobClient
     private readonly IOptions<TaskTowerOptions> _options;
     private readonly TaskTowerDbContext _dbContext;
     private readonly ILogger _logger;
+    private IJobCreationMiddleware? _jobCreationMiddleware;
 
     public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext, ILogger<BackgroundJobClient> logger)
     {
@@ -62,7 +66,14 @@ public class BackgroundJobClient : IBackgroundJobClient
         _dbContext = dbContext;
         _logger = logger;
     }
-
+    
+    public IBackgroundJobClient WithCreationMiddleware<TCreationMiddleware>() 
+        where TCreationMiddleware : IJobCreationMiddleware
+    {
+        _jobCreationMiddleware = Activator.CreateInstance<TCreationMiddleware>();
+        return this;
+    }
+    
     public IScheduleBuilder Schedule(Expression<Action> methodCall, CancellationToken cancellationToken = default)
         => new ScheduleBuilder<Action>(this, methodCall, cancellationToken);
     public IScheduleBuilder Schedule<T>(Expression<Action<T>> methodCall, CancellationToken cancellationToken = default)
@@ -301,13 +312,19 @@ public class BackgroundJobClient : IBackgroundJobClient
 
     private async Task CreateJob(TaskTowerJob job, CancellationToken cancellationToken = default)
     {
+        var creationContext = new CreatingContext(job);
+        _jobCreationMiddleware?.OnCreating(creationContext);
+        
+        // serialize job.ContextParameters
+        var contextParameters = JsonSerializer.Serialize(job.ContextParameters);
+        
         // TODO connection string check
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         await conn.OpenAsync(cancellationToken);
         
         await conn.ExecuteAsync(
-            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries) " +
-            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries)",
+            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries, context_parameters) " +
+            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries, @ContextParameters::jsonb)",
             new
             {
                 job.Id,
@@ -322,7 +339,8 @@ public class BackgroundJobClient : IBackgroundJobClient
                 job.CreatedAt,
                 Status = job.Status.Value,
                 job.Retries,
-                job.RanAt
+                job.RanAt,
+                ContextParameters = contextParameters
             });
         
         // _dbContext.Jobs.Add(job);

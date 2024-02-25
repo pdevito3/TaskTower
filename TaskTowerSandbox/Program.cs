@@ -36,6 +36,8 @@ builder.Services.AddHttpClient("PokeAPI", client =>
 });
 builder.Services.AddScoped<PokeApiService>();
 
+builder.Services.AddScoped<IJobContextAccessor, JobContextAccessor>();
+builder.Services.AddScoped<IJobWithUserContext, JobWithUserContext>();
 builder.Services.AddTaskTower(builder.Configuration,x =>
 {
     x.ConnectionString = TaskTowerConstants.ConnectionString;
@@ -70,6 +72,10 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         x.DisplayName = "Low Task";
         x.MaxRetryCount = 1;
     });
+    // x.AddJobConfiguration<DoAMiddlewareThing>(x =>
+    // {
+    //     x.WithActivator<JobWithUserContextActivator>(builder?.Services);
+    // });
 });
 
 builder.Services.AddScoped<IDummyLogger, DummyLogger>();
@@ -81,11 +87,36 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
 
+
+
+app.MapPost("/create-middleware-job", async (string user, HttpContext http, IBackgroundJobClient client) =>
+{
+    if (string.IsNullOrWhiteSpace(user))
+    {
+        return Results.BadRequest("Invalid job payload.");
+    }
+
+    try
+    {
+        var command = new DoAMiddlewareThing.Command(user);
+        var jobId = await client
+            .WithCreationMiddleware<JobUserMiddlewareWasAttribute>()
+            .Enqueue<DoAMiddlewareThing>(x => x.Handle(command));
+
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
 app.MapPost("/console-log", async (JobData request, HttpContext http, IBackgroundJobClient client) =>
 {
     try
     {
-
         var jobId = await client.Enqueue(() => Console.WriteLine("this is simple"));
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }

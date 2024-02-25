@@ -73,6 +73,9 @@ public class TaskTowerJob
     /// The time after which the job should no longer be run
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
+    
+    private readonly Dictionary<string, object> _contextParameters = new();
+    public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters;
 
     internal EnqueuedJob? EnqueuedJob { get; } = null!;
     
@@ -83,7 +86,7 @@ public class TaskTowerJob
     internal IReadOnlyCollection<RunHistory> RunHistory => _runHistory.AsReadOnly();
 
 
-    public static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
+    internal static TaskTowerJob Create(TaskTowerJobForCreation jobForCreation)
     {
         var taskTowerJob = new TaskTowerJob();
         
@@ -106,7 +109,7 @@ public class TaskTowerJob
         return taskTowerJob;
     }
     
-    public async Task Invoke(IServiceProvider serviceProvider)
+    internal async Task Invoke(IServiceProvider serviceProvider)
     {
         var handlerType = System.Type.GetType(Type);
         if (handlerType == null) throw new InvalidOperationException($"Handler type '{Type}' not found.");
@@ -188,14 +191,14 @@ public class TaskTowerJob
         }
     }
     
-    public TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
+    internal TaskTowerJob MarkCompleted(DateTimeOffset ranAt)
     {
         Status = JobStatus.Completed();
         RanAt = ranAt;
         return this;
     }
     
-    public TaskTowerJob MarkAsFailed()
+    internal TaskTowerJob MarkAsFailed()
     {
         Status = JobStatus.Failed();
         RanAt = DateTimeOffset.UtcNow;
@@ -213,6 +216,12 @@ public class TaskTowerJob
         if (Retries >= MaxRetries)
             Status = JobStatus.Dead();
         
+        return this;
+    }
+    
+    internal TaskTowerJob SetContextParameter(string key, object value)
+    {
+        _contextParameters[key] = value;
         return this;
     }
 
