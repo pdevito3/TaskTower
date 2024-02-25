@@ -1,5 +1,6 @@
 namespace TaskTower.Processing;
 
+using Domain;
 using Domain.TaskTowerJob;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -29,30 +30,37 @@ public interface IJobCreationMiddleware
 
 public class JobContext
 {
-    private readonly Dictionary<string, object> _contextParameters = new();
-    public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters;
-    
-    public void SetContextParameter(string name, object value)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentNullException(nameof (name));
-        _contextParameters[name] = value;
-    }
+    private readonly List<ContextParameter> _contextParameters = new();
+    public IReadOnlyList<ContextParameter> ContextParameters => _contextParameters;
     
     public T? GetContextParameter<T>(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
             throw new ArgumentNullException(nameof (name));
-        return _contextParameters.TryGetValue(name, out var parameter) ? (T) parameter : default (T);
+        
+        var contextParameter = _contextParameters.FirstOrDefault(x => x.Name == name);
+        
+        if (contextParameter == null)
+            return default;
+        
+        var contextParameterType = Type.GetType(contextParameter.Type);
+        
+        if (contextParameterType != typeof(T))
+        {
+            // TODO log?
+            return default;
+        }
+        
+        if (contextParameter.Value == null)
+            return default;
+        
+        return (T) Convert.ChangeType(contextParameter.Value, typeof(T));
     }
     
     public static JobContext Create(TaskTowerJob job)
     {
         var context = new JobContext();
-        foreach (var contextParameter in job.ContextParameters)
-        {
-            context.SetContextParameter(contextParameter.Key, contextParameter.Value);
-        }
+        context._contextParameters.AddRange(job.ContextParameters);
         return context;
     }
 }

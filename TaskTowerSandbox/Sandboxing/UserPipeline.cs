@@ -43,7 +43,7 @@ public class JobWithUserContextInterceptor : JobInterceptor
 
     public override JobServiceProvider Intercept(JobContext context)
     {
-        var user = context.GetContextParameter<object>("User");
+        var user = context.GetContextParameter<string>("User");
         
         if (user == null)
         {

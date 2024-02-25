@@ -74,10 +74,28 @@ public class TaskTowerJob
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
     
-    private readonly Dictionary<string, object> _contextParameters =  new();
-    public IReadOnlyDictionary<string, object> ContextParameters => _contextParameters.Count > 0 
-        ? _contextParameters 
-        : JsonSerializer.Deserialize<Dictionary<string, object>>(RawContextParameters) ?? new Dictionary<string, object>();
+    private readonly List<ContextParameter> _contextParameters = new();
+
+    public IReadOnlyList<ContextParameter> ContextParameters
+    {
+        get
+        {
+            if (_contextParameters.Count > 0)
+            {
+                return _contextParameters;
+            }
+            else if (!string.IsNullOrEmpty(RawContextParameters))
+            {
+                var deserializedParameters = JsonSerializer.Deserialize<List<ContextParameter>>(RawContextParameters);
+                if (deserializedParameters != null)
+                {
+                    _contextParameters.AddRange(deserializedParameters);
+                }
+            }
+
+            return _contextParameters ?? new List<ContextParameter>();
+        }
+    }
     
     public string RawContextParameters { get; private set; }
 
@@ -223,10 +241,18 @@ public class TaskTowerJob
         return this;
     }
     
-    internal TaskTowerJob SetContextParameter(string key, object value)
+    internal TaskTowerJob SetContextParameter(string name, object value)
     {
-        _contextParameters[key] = value;
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentNullException(nameof(name));
+        
+        var typeName = value.GetType().AssemblyQualifiedName;
+        if (typeName == null)
+            throw new InvalidOperationException("Unable to get the fully qualified name of the type.");
+
+        _contextParameters.Add(new ContextParameter(name, typeName, value.ToString()));
         RawContextParameters = JsonSerializer.Serialize(_contextParameters);
+        
         return this;
     }
 

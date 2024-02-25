@@ -25,6 +25,8 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<TaskTowerJob>
             .HasColumnType("jsonb");
         builder.Property(x => x.Retries).IsRequired();
 
+        // TODO see how ef 8 would handle a json col like this? guessing it's still just jsonb with what amounts to a conversion? and dapper needs to like it anyway
+        builder.Ignore(x => x.ContextParameters);
         builder.Property(x => x.RawContextParameters)
             .HasColumnName("context_parameters")
             .HasColumnType("jsonb")
