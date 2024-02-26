@@ -219,7 +219,7 @@ public class JobNotificationListener : BackgroundService
 
             try
             {
-                // TODO add activator trace
+                // TODO add interceptor span
                 _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
                 var jobType = Type.GetType(job.Type);
                 var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
@@ -228,7 +228,7 @@ public class JobNotificationListener : BackgroundService
                 {
                     serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
                 }
-                // TODO end trace
+                // TODO end span
                 
                 await job.Invoke(serviceProvider);
                 var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
@@ -323,7 +323,7 @@ public class JobNotificationListener : BackgroundService
             
             if (job.Status.IsDead())
             {
-                // TODO add activator trace
+                // TODO add interceptor span
                 _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
                 
                 var jobType = Type.GetType(job.Type);
@@ -333,7 +333,7 @@ public class JobNotificationListener : BackgroundService
                 {
                     serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
                 }
-                // TODO end trace
+                // TODO end span
             }
             
             _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
