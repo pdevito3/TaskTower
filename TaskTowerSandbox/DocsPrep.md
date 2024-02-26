@@ -25,7 +25,7 @@ TBD
 - Retries of failed jobs ✅
 - Various queue prioritizations ✅
 - Job tags  ✅
-- Job Middleware and Interceptors 🚧✅
+- Job Contextualizers and Interceptors ✅
 - Automatic recovery of tasks in the event of a worker crash 🚧
 - Timeout handling 🚧
 - Deadline handling 🚧
@@ -52,6 +52,10 @@ TBD
    2. When a job is inserted and should be processed at a later time, Task Tower will poll at at a `JobCheckInterval` to be enqueued
 2. Task Tower will check the queue at an interval of `QueueAnnouncementInterval` based on whatever prioritization strategy has been configured and announce jobs for processing using Postges' `pg_notify`
 3. Task Tower will be listening for announced jobs and process them
+
+## Benchmarks
+
+TBD
 
 ## Queues
 
@@ -176,4 +180,164 @@ client.TagJob(jobId,  ["tag10", "tag11"]);
 
 
 
-## Benchmarks
+## Job Contextualizers and Interceptors
+
+Task tower providers interceptors for performing activities during various stages of a job's lifecycle.
+
+- `PreProcessing`: runs before processing a job.
+- `Death`: runs after a job has been marked as `Dead`.
+
+For example, if i wanted to send a slack notification when a job is dead, I could make an interceptor like this:
+
+```csharp
+public class FakeSlackService()
+{
+    public void SendMessage(string channel, string message)
+    {
+        Log.Information("Sending message to the '{Channel}' channel: '{Message}'", channel, message);
+    }
+}
+
+public class SlackSaysDeathInterceptor : JobInterceptor
+{
+    private readonly IServiceProvider _serviceProvider;
+    
+    public SlackSaysDeathInterceptor(IServiceProvider serviceProvider) : base(serviceProvider)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
+
+    public override JobServiceProvider Intercept(JobInterceptorContext interceptorContext)
+    {
+        var jobId = interceptorContext.Job.Id;
+        var errorDetails = interceptorContext.ErrorDetails;
+        var fakeSlackService = _serviceProvider.GetRequiredService<FakeSlackService>();
+        
+        fakeSlackService.SendMessage("death", $"""
+                                               Job {jobId} has died with error: {errorDetails?.Message} at {errorDetails?.OccurredAt}. Here's the details
+                                               
+                                               {errorDetails?.Details}
+                                               """);
+
+        return new JobServiceProvider(_serviceProvider);
+    }
+}
+```
+
+And then add it to a job like this in your configuration:
+
+```csharp
+builder.Services.AddTaskTower(builder.Configuration,x =>
+{
+    x.AddJobConfiguration<DoAPossiblyFailingThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Possibly Failing Task")
+        .SetMaxRetryCount(2)
+        .WithDeathInterceptor<SlackSaysDeathInterceptor>();
+  	//...
+});
+```
+
+Interceptors can be stacked if you want:
+
+```csharp
+builder.Services.AddTaskTower(builder.Configuration,x =>
+{
+    x.AddJobConfiguration<DoAPossiblyFailingThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Possibly Failing Task")
+        .SetMaxRetryCount(2)
+        .WithDeathInterceptor<SlackSaysDeathInterceptor>()
+        .WithDeathInterceptor<TeamsSaysDeathInterceptor>();
+  	//...
+});
+```
+
+### Context Parameters
+
+You can also provide additional context when enqueuing your jobs that can be used during interception. 
+
+For example, say we usually get our user information from `HttpContext`, but since we don't have access to this when running a job, we want to make a new custom job context `ExampleJobRunnerContext` that can hold the user info for us an be accessible during a job.
+
+Let's say we have this job that will be able to get the user form the param when passed in, but also from our example `IExampleJobRunnerContext` using DI in the context of a job.
+
+```csharp
+public class JobToDoAContextualizerThing(IExampleJobRunnerContext exampleJobRunnerContext)
+{
+    public sealed record Command(string? User) : IJobWithUserContext;
+    
+    public async Task Handle(Command request)
+    {
+        Log.Information("Handled JobToDoAContextualizerThing with a user from the param as: {RequestUser} and from the context as: {UserContextUser}", 
+            request.User, 
+            exampleJobRunnerContext?.User);
+    }
+}
+```
+
+First, let's make a contextualizer that can get a user from the job parameters and add it to the Task Tower `JobContext`.
+
+```csharp
+public class CurrentUserAssignmentContext : IJobContextualizer
+{
+    public void EnrichContext(JobContext context)
+    {
+        var user = jobParameters?.User;
+
+        if(user == null)
+            throw new Exception($"A User could not be established");
+
+        context.SetJobContextParameter("User", user);
+    }
+}
+```
+
+Now we can make an interceptor to get this user out of context and into our `ExampleJobRunnerContext`:
+
+```csharp
+public class JobWithUserContextInterceptor : JobInterceptor
+{
+    private readonly IServiceProvider _serviceProvider;
+    
+    public JobWithUserContextInterceptor(IServiceProvider serviceProvider) : base(serviceProvider)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
+
+    public override JobServiceProvider Intercept(JobInterceptorContext interceptorContext)
+    {
+        var user = interceptorContext.GetContextParameter<string>("User");
+        
+        if (user == null)
+        {
+            return base.Intercept(interceptorContext);
+        }
+
+        var exampleJobRunnerContext = _serviceProvider.GetRequiredService<IExampleJobRunnerContext>();
+        exampleJobRunnerContext.User = user;
+
+        return new JobServiceProvider(_serviceProvider);
+    }
+}
+```
+
+And configure our job to user this interceptor during preprocessing so we have the user added to the service provider and accessible while the job is running:
+
+```csharp
+builder.Services.AddScoped<IExampleJobRunnerContext, ExampleJobRunnerContext>();
+builder.Services.AddTaskTower(builder.Configuration,x =>
+{
+    x.AddJobConfiguration<DoAContextualizerThing>()
+        .WithPreProcessingInterceptor<JobWithUserContextInterceptor>();
+  	//...
+});
+```
+
+And finally, we can use that context when we enqueue our job:
+
+```csharp
+var command = new JobToDoAContextualizerThing.Command(user);
+var jobId = await client
+    .WithContext<JobUserAssignmentContext>()
+    .Enqueue<JobToDoAContextualizerThing>(x => x.Handle(command));
+```
