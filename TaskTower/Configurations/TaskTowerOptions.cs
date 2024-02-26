@@ -1,5 +1,6 @@
 namespace TaskTower.Configurations;
 
+using Domain.InterceptionStages;
 using Domain.QueuePrioritizations;
 using Interception;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,10 +86,12 @@ public class TaskTowerOptions
         return null;
     }
     
-    public List<Type> GetInterceptors(Type? type)
+    public List<Type> GetInterceptors(Type? type, InterceptionStage stage)
     {
         if (type != null && JobConfigurations.TryGetValue(type, out var config))
-            return config.JobInterceptors;
+            return config.JobInterceptors
+                .Where(interceptor => interceptor.Stage == stage)
+                .Select(interceptor => interceptor.InterceptorType).ToList();
         
         return new List<Type>();
     }
@@ -105,7 +108,7 @@ public class TaskTowerOptions
         public string? Queue { get; private set; }
         public string? DisplayName { get; private set; }
         public int? MaxRetryCount { get; private set; }
-        public List<Type> JobInterceptors { get; private set; } = new List<Type>();
+        public List<InterceptorAssignment> JobInterceptors { get; private set; } = new List<InterceptorAssignment>();
 
         // Enables fluent configuration by returning 'this'
         public JobConfiguration SetQueue(string queue)
@@ -126,10 +129,12 @@ public class TaskTowerOptions
             return this;
         }
 
-        public JobConfiguration WithInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
+        public JobConfiguration WitPreProcessingInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
         {
-            JobInterceptors.Add(typeof(TJobInterceptor));
+            JobInterceptors.Add(new InterceptorAssignment(typeof(TJobInterceptor), InterceptionStage.PreProcessing()));
             return this;
         }
     }
+    
+    public record InterceptorAssignment(Type InterceptorType, InterceptionStage Stage);
 }

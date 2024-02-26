@@ -25,10 +25,7 @@ public class JobInterceptorContext
         var contextParameterType = Type.GetType(contextParameter.Type);
         
         if (contextParameterType != typeof(T))
-        {
-            // TODO log?
-            return default;
-        }
+            throw new ArgumentException($"Context parameter with name {name} does not match stored type {typeof(T).Name}");
         
         if (contextParameterType == null)
             throw new ArgumentException($"Context parameter with name {name} has a null type");

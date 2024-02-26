@@ -1,7 +1,11 @@
 namespace TaskTower.Interception;
 
+using Domain.InterceptionStages;
+
 public class JobInterceptor
 {
+    internal InterceptionStage InterceptionStage { get; private set; }
+    
     private readonly IServiceProvider _serviceProvider;
 
     public JobInterceptor(IServiceProvider serviceProvider)
@@ -17,5 +21,10 @@ public class JobInterceptor
     public virtual JobServiceProvider Intercept()
     {
         return new JobServiceProvider(_serviceProvider);
+    }
+    
+    internal void SetInterceptionStage(InterceptionStage interceptionStage)
+    {
+        InterceptionStage = interceptionStage;
     }
 }

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Configurations;
 using Dapper;
+using Domain.InterceptionStages;
 using Domain.JobStatuses;
 using Domain.RunHistories;
 using Domain.RunHistories.Models;
@@ -218,7 +219,7 @@ public class JobNotificationListener : BackgroundService
             {
                 // TODO add activator trace
                 var jobType = Type.GetType(job.Type);
-                var interceptors = _options.GetInterceptors(jobType);
+                var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
                 foreach (var interceptor in interceptors)
                 {
                     if (!typeof(JobInterceptor).IsAssignableFrom(interceptor))

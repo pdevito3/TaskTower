@@ -73,7 +73,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         .SetQueue("critical")
         .SetDisplayName("Middleware Task")
         .SetMaxRetryCount(1)
-        .WithInterceptor<JobWithUserContextInterceptor>();
+        .WitPreProcessingInterceptor<JobWithUserContextInterceptor>();
 });
 
 // builder.Services.AddScoped<IDummyLogger, DummyLogger>();

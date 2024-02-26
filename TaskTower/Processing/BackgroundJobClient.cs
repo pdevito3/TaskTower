@@ -50,8 +50,8 @@ public interface IBackgroundJobClient
     // multi tag with params for tag
     IBackgroundJobClient TagJob(Guid jobId, params string[] tags);
     
-    IBackgroundJobClient WithContext<TCreationMiddleware>() 
-        where TCreationMiddleware : IJobContextualizer;
+    IBackgroundJobClient WithContext<TContextualizer>() 
+        where TContextualizer : IJobContextualizer;
 }
 
 public class BackgroundJobClient : IBackgroundJobClient
@@ -59,7 +59,7 @@ public class BackgroundJobClient : IBackgroundJobClient
     private readonly IOptions<TaskTowerOptions> _options;
     private readonly TaskTowerDbContext _dbContext;
     private readonly ILogger _logger;
-    private IJobContextualizer? _jobContextualizer;
+    private List<IJobContextualizer> _jobContextualizers = new List<IJobContextualizer>();
 
     public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext, ILogger<BackgroundJobClient> logger)
     {
@@ -68,10 +68,10 @@ public class BackgroundJobClient : IBackgroundJobClient
         _logger = logger;
     }
     
-    public IBackgroundJobClient WithContext<TCreationMiddleware>() 
-        where TCreationMiddleware : IJobContextualizer
+    public IBackgroundJobClient WithContext<TContextualizer>() 
+        where TContextualizer : IJobContextualizer
     {
-        _jobContextualizer = Activator.CreateInstance<TCreationMiddleware>();
+        _jobContextualizers.Add(Activator.CreateInstance<TContextualizer>());
         return this;
     }
     
@@ -314,7 +314,10 @@ public class BackgroundJobClient : IBackgroundJobClient
     private async Task CreateJob(TaskTowerJob job, CancellationToken cancellationToken = default)
     {
         var creationContext = new JobContext(job);
-        _jobContextualizer?.EnrichContext(creationContext);
+        foreach (var jobContextualizer in _jobContextualizers)
+        {
+            jobContextualizer?.EnrichContext(creationContext);
+        }
         
         // TODO connection string check
         await using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
