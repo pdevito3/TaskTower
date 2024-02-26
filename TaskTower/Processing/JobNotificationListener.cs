@@ -8,6 +8,7 @@ using Domain.InterceptionStages;
 using Domain.JobStatuses;
 using Domain.RunHistories;
 using Domain.RunHistories.Models;
+using Domain.TaskTowerJob;
 using Interception;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -208,6 +209,7 @@ public class JobNotificationListener : BackgroundService
         var queuePrioritization = _options.QueuePrioritization;
         var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);
         
+        var errorDetails = new ErrorDetails(null, null, null);
         if (job != null)
         {
             var nowProcessing = DateTimeOffset.UtcNow;
@@ -218,23 +220,13 @@ public class JobNotificationListener : BackgroundService
             try
             {
                 // TODO add activator trace
+                _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
                 var jobType = Type.GetType(job.Type);
                 var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
+                _logger.LogDebug("Found {Count} preprocessing interceptors for Job {JobId}", interceptors.Count, job.Id);
                 foreach (var interceptor in interceptors)
                 {
-                    if (!typeof(JobInterceptor).IsAssignableFrom(interceptor))
-                    {
-                        _logger.LogWarning("Interceptor {Interceptor} is not a JobInterceptor", interceptor);
-                        continue;
-                    }
-                    var jobInterceptorInstance = Activator.CreateInstance(interceptor, serviceProvider) as JobInterceptor;
-                    var updatedScope = jobInterceptorInstance?.Intercept(JobInterceptorContext.Create(job));
-
-                    var updatedSp = updatedScope?.GetServiceProvider();
-                    if (updatedSp != null)
-                    {
-                        serviceProvider = updatedSp;
-                    }
+                    serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
                 }
                 // TODO end trace
                 
@@ -320,16 +312,58 @@ public class JobNotificationListener : BackgroundService
                 await AddRunHistory(conn, runHistory, tx);
                 
                 _logger.LogError("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
+                
                 if (job.Status.IsDead())
                 {
                     _logger.LogError("Job {JobId} is dead", job.Id);
+                    errorDetails = new ErrorDetails(runHistory.Comment, runHistory.Details, runHistory.OccurredAt);
                 }
             }
             await tx.CommitAsync(stoppingToken);
             
+            if (job.Status.IsDead())
+            {
+                // TODO add activator trace
+                _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
+                
+                var jobType = Type.GetType(job.Type);
+                var interceptors = _options.GetInterceptors(jobType, InterceptionStage.Death());
+                _logger.LogDebug("Found {Count} death interceptors for Job {JobId}", interceptors.Count, job.Id);
+                foreach (var interceptor in interceptors)
+                {
+                    serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
+                }
+                // TODO end trace
+            }
+            
             _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
         }
         
+    }
+
+    private IServiceProvider ExecuteInterceptor(IServiceProvider serviceProvider, Type interceptor, TaskTowerJob job, ErrorDetails? errorDetails = null!)
+    {
+        if (!typeof(JobInterceptor).IsAssignableFrom(interceptor))
+        {
+            _logger.LogWarning("Interceptor {Interceptor} is not a JobInterceptor", interceptor);
+            return serviceProvider;
+        }
+        var jobInterceptorInstance = Activator.CreateInstance(interceptor, serviceProvider) as JobInterceptor;
+
+        var context = JobInterceptorContext.Create(job);
+        if (errorDetails != null)
+        {
+            context.SetErrorDetails(errorDetails);
+        }
+        var updatedScope = jobInterceptorInstance?.Intercept(context);
+
+        var updatedSp = updatedScope?.GetServiceProvider();
+        if (updatedSp != null)
+        {
+            serviceProvider = updatedSp;
+        }
+
+        return serviceProvider;
     }
 
     private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)

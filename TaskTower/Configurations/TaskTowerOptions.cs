@@ -129,9 +129,15 @@ public class TaskTowerOptions
             return this;
         }
 
-        public JobConfiguration WitPreProcessingInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
+        public JobConfiguration WithPreProcessingInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
         {
             JobInterceptors.Add(new InterceptorAssignment(typeof(TJobInterceptor), InterceptionStage.PreProcessing()));
+            return this;
+        }
+
+        public JobConfiguration WithDeathInterceptor<TJobInterceptor>() where TJobInterceptor : JobInterceptor
+        {
+            JobInterceptors.Add(new InterceptorAssignment(typeof(TJobInterceptor), InterceptionStage.Death()));
             return this;
         }
     }

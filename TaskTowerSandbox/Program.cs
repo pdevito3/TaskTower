@@ -35,6 +35,7 @@ builder.Services.AddHttpClient("PokeAPI", client =>
     client.BaseAddress = new Uri("https://pokeapi.co/api/v2/");
 });
 builder.Services.AddScoped<PokeApiService>();
+builder.Services.AddScoped<FakeSlackService>();
 
 builder.Services.AddScoped<IJobContextAccessor, JobContextAccessor>();
 builder.Services.AddScoped<IJobWithUserContext, JobWithUserContext>();
@@ -53,11 +54,12 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     };
     x.QueuePrioritization = QueuePrioritization.None();
     // x.IdleTransactionTimeout = 1000;
-    
+
     x.AddJobConfiguration<DoAPossiblyFailingThing>()
         .SetQueue("critical")
         .SetDisplayName("Possibly Failing Task")
-        .SetMaxRetryCount(2);
+        .SetMaxRetryCount(0)
+        .WithDeathInterceptor<SlackSaysDeathInterceptor>();
 
     x.AddJobConfiguration<DoACriticalThing>()
         .SetQueue("critical")
@@ -73,7 +75,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         .SetQueue("critical")
         .SetDisplayName("Middleware Task")
         .SetMaxRetryCount(1)
-        .WitPreProcessingInterceptor<JobWithUserContextInterceptor>();
+        .WithPreProcessingInterceptor<JobWithUserContextInterceptor>();
 });
 
 // builder.Services.AddScoped<IDummyLogger, DummyLogger>();

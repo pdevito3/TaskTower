@@ -11,6 +11,9 @@ public class JobInterceptorContext
 {
     private readonly List<ContextParameter> _contextParameters = new();
     public IReadOnlyList<ContextParameter> ContextParameters => _contextParameters;
+    public TaskTowerJob Job { get; private set; }
+    public ErrorDetails? ErrorDetails { get; private set; }
+    
     
     public T? GetContextParameter<T>(string name)
     {
@@ -55,10 +58,16 @@ public class JobInterceptorContext
         }
     }
     
-    public static JobInterceptorContext Create(TaskTowerJob job)
+    internal static JobInterceptorContext Create(TaskTowerJob job)
     {
         var context = new JobInterceptorContext();
         context._contextParameters.AddRange(job.ContextParameters);
+        context.Job = job;
         return context;
+    }
+    
+    internal void SetErrorDetails(ErrorDetails errorDetails)
+    {
+        ErrorDetails = errorDetails;
     }
 }
