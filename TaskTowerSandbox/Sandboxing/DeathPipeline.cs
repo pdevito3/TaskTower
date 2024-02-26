@@ -28,3 +28,26 @@ public class SlackSaysDeathInterceptor : JobInterceptor
         return new JobServiceProvider(_serviceProvider);
     }
 }
+
+public class TeamsSaysDeathInterceptor : JobInterceptor
+{
+    private readonly IServiceProvider _serviceProvider;
+    
+    public TeamsSaysDeathInterceptor(IServiceProvider serviceProvider) : base(serviceProvider)
+    {
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+    }
+
+    public override JobServiceProvider Intercept(JobInterceptorContext interceptorContext)
+    {
+        var jobId = interceptorContext.Job.Id;
+        var errorDetails = interceptorContext.ErrorDetails;
+        var fakeTeamsService = _serviceProvider.GetRequiredService<FakeTeamsService>();
+        
+        fakeTeamsService.SendMessage("death", $""""
+                                               Job {jobId} has died with error: {errorDetails?.Message} at {errorDetails?.OccurredAt} 
+                                              """");
+
+        return new JobServiceProvider(_serviceProvider);
+    }
+}

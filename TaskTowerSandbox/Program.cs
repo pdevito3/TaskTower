@@ -36,6 +36,7 @@ builder.Services.AddHttpClient("PokeAPI", client =>
 });
 builder.Services.AddScoped<PokeApiService>();
 builder.Services.AddScoped<FakeSlackService>();
+builder.Services.AddScoped<FakeTeamsService>();
 
 builder.Services.AddScoped<IJobContextAccessor, JobContextAccessor>();
 builder.Services.AddScoped<IJobWithUserContext, JobWithUserContext>();
@@ -59,7 +60,8 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         .SetQueue("critical")
         .SetDisplayName("Possibly Failing Task")
         .SetMaxRetryCount(0)
-        .WithDeathInterceptor<SlackSaysDeathInterceptor>();
+        .WithDeathInterceptor<SlackSaysDeathInterceptor>()
+        .WithDeathInterceptor<TeamsSaysDeathInterceptor>();
 
     x.AddJobConfiguration<DoACriticalThing>()
         .SetQueue("critical")
@@ -71,7 +73,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         .SetDisplayName("Low Task")
         .SetMaxRetryCount(1);
 
-    x.AddJobConfiguration<DoAMiddlewareThing>()
+    x.AddJobConfiguration<DoAContextualizerThing>()
         .SetQueue("critical")
         .SetDisplayName("Middleware Task")
         .SetMaxRetryCount(1)
@@ -98,10 +100,10 @@ app.MapPost("/create-middleware-job", async (string user, HttpContext http, IBac
 
     try
     {
-        var command = new DoAMiddlewareThing.Command(user);
+        var command = new DoAContextualizerThing.Command(user);
         var jobId = await client
             .WithContext<JobUserAssignmentContext>()
-            .Enqueue<DoAMiddlewareThing>(x => x.Handle(command));
+            .Enqueue<DoAContextualizerThing>(x => x.Handle(command));
 
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }
