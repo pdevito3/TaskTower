@@ -41,67 +41,67 @@ public class JobNotificationListener : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        try
-        {
-            _logger.LogInformation("Task Tower worker is starting");
-            using var scope = _serviceScopeFactory.CreateScope();
-            
-            await using var conn = new NpgsqlConnection(_options.ConnectionString);
-            await conn.OpenAsync(stoppingToken);
+        // try
+        // {
+        _logger.LogInformation("Task Tower worker is starting");
+        using var scope = _serviceScopeFactory.CreateScope();
+        
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
+        await conn.OpenAsync(stoppingToken);
 
-            _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
-            await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
-            {
-                await cmd.ExecuteNonQueryAsync(stoppingToken);
-            }
-            _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
+        _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
+        await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
+        {
+            await cmd.ExecuteNonQueryAsync(stoppingToken);
+        }
+        _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
+        
+        // Define the action to take when a notification is received
+        conn.Notification += async (_, e) =>
+        {
+            // var channel = e.Channel;
             
-            // Define the action to take when a notification is received
-            conn.Notification += async (_, e) =>
+            var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
+            if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
             {
-                // var channel = e.Channel;
-                
-                var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
-                if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
+                _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
+                    
+                // Wait to enter the semaphore before processing a job
+                await _semaphore.WaitAsync(stoppingToken);
+                try
                 {
-                    _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
-                        
-                    // Wait to enter the semaphore before processing a job
-                    await _semaphore.WaitAsync(stoppingToken);
-                    try
-                    {
-                        await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
-                        await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
-                    }
-                    finally
-                    {
-                        // Ensure the semaphore is always released
-                        _semaphore.Release();
-                    }
+                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                    await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
                 }
-            };
-            
-            var scheduledJobsInterval = NormalizeInterval(_options.JobCheckInterval);
-            var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
-            _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
-            _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
-            var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
-            var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
-
-            _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
-            _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
-
-            // // Keep the service running until a cancellation request is received
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                // This call is blocking until a notification is received
-                await conn.WaitAsync(stoppingToken);
+                finally
+                {
+                    // Ensure the semaphore is always released
+                    _semaphore.Release();
+                }
             }
-        }
-        catch (Exception ex)
+        };
+        
+        var scheduledJobsInterval = NormalizeInterval(_options.JobCheckInterval);
+        var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
+        _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
+        _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
+        var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
+        var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
+
+        _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
+        _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
+
+        // // Keep the service running until a cancellation request is received
+        while (!stoppingToken.IsCancellationRequested)
         {
-            _logger.LogCritical(ex, "An error occurred while processing job notifications");
+            // This call is blocking until a notification is received
+            await conn.WaitAsync(stoppingToken);
         }
+        // }
+        // catch (Exception ex)
+        // {
+        //     _logger.LogError(ex, "An error occurred while processing job notifications");
+        // }
     }
     private TimeSpan NormalizeInterval(TimeSpan interval)
     {
