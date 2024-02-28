@@ -41,59 +41,66 @@ public class JobNotificationListener : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Task Tower worker is starting");
-        using var scope = _serviceScopeFactory.CreateScope();
-        
-        await using var conn = new NpgsqlConnection(_options.ConnectionString);
-        await conn.OpenAsync(stoppingToken);
-
-        _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
-        await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
+        try
         {
-            await cmd.ExecuteNonQueryAsync(stoppingToken);
-        }
-        _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
-        
-        // Define the action to take when a notification is received
-        conn.Notification += async (_, e) =>
-        {
-            // var channel = e.Channel;
+            _logger.LogInformation("Task Tower worker is starting");
+            using var scope = _serviceScopeFactory.CreateScope();
             
-            var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
-            if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
+            await using var conn = new NpgsqlConnection(_options.ConnectionString);
+            await conn.OpenAsync(stoppingToken);
+
+            _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
+            await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobAvailable}", conn))
             {
-                _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
-                    
-                // Wait to enter the semaphore before processing a job
-                await _semaphore.WaitAsync(stoppingToken);
-                try
-                {
-                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
-                    await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
-                }
-                finally
-                {
-                    // Ensure the semaphore is always released
-                    _semaphore.Release();
-                }
+                await cmd.ExecuteNonQueryAsync(stoppingToken);
             }
-        };
-        
-        var scheduledJobsInterval = NormalizeInterval(_options.JobCheckInterval);
-        var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
-        _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
-        _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
-        var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
-        var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
+            _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
+            
+            // Define the action to take when a notification is received
+            conn.Notification += async (_, e) =>
+            {
+                // var channel = e.Channel;
+                
+                var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
+                if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
+                {
+                    _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
+                        
+                    // Wait to enter the semaphore before processing a job
+                    await _semaphore.WaitAsync(stoppingToken);
+                    try
+                    {
+                        await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                        await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
+                    }
+                    finally
+                    {
+                        // Ensure the semaphore is always released
+                        _semaphore.Release();
+                    }
+                }
+            };
+            
+            var scheduledJobsInterval = NormalizeInterval(_options.JobCheckInterval);
+            var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
+            _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
+            _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
+            var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
+            var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
 
-        _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
-        _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
+            _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
+            _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
 
-        // // Keep the service running until a cancellation request is received
-        while (!stoppingToken.IsCancellationRequested)
+            // // Keep the service running until a cancellation request is received
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                // This call is blocking until a notification is received
+                await conn.WaitAsync(stoppingToken);
+            }
+        }
+        catch (Exception ex)
         {
-            // This call is blocking until a notification is received
-            await conn.WaitAsync(stoppingToken);
+            _logger.LogCritical(ex, "An error occurred while processing job notifications");
         }
     }
     private TimeSpan NormalizeInterval(TimeSpan interval)
@@ -220,14 +227,20 @@ public class JobNotificationListener : BackgroundService
             try
             {
                 // TODO add interceptor span
-                _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
+                _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
                 var jobType = Type.GetType(job.Type);
                 var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
                 _logger.LogDebug("Found {Count} preprocessing interceptors for Job {JobId}", interceptors.Count, job.Id);
-                foreach (var interceptor in interceptors)
+
+                if (interceptors.Count > 0)
                 {
-                    serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
+                    _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
+                    foreach (var interceptor in interceptors)
+                    {
+                        serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
+                    }
                 }
+                
                 // TODO end span
                 
                 await job.Invoke(serviceProvider);
@@ -324,14 +337,18 @@ public class JobNotificationListener : BackgroundService
             if (job.Status.IsDead())
             {
                 // TODO add interceptor span
-                _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
-                
+                _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
                 var jobType = Type.GetType(job.Type);
                 var interceptors = _options.GetInterceptors(jobType, InterceptionStage.Death());
                 _logger.LogDebug("Found {Count} death interceptors for Job {JobId}", interceptors.Count, job.Id);
-                foreach (var interceptor in interceptors)
+
+                if (interceptors.Count > 0)
                 {
-                    serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
+                    _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
+                    foreach (var interceptor in interceptors)
+                    {
+                        serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
+                    }
                 }
                 // TODO end span
             }

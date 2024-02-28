@@ -115,7 +115,7 @@ public class TaskTowerJob
         taskTowerJob.Id = Guid.NewGuid();
         taskTowerJob.Status = JobStatus.Pending();
         taskTowerJob.Retries = 0;
-        taskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 20;
+        taskTowerJob.MaxRetries = jobForCreation.MaxRetries ?? 10;
         taskTowerJob.RunAfter = jobForCreation.RunAfter ?? DateTimeOffset.UtcNow;
         taskTowerJob.Deadline = jobForCreation.Deadline;
         taskTowerJob.CreatedAt = DateTimeOffset.UtcNow;

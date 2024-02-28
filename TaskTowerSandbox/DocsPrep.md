@@ -59,7 +59,7 @@ TBD
 
 ## Queues
 
-There are a various different queuing prioritization strategies that can be used in Task Tower. Jobs with no reconized queue will be considered a lowest priority based on whatever rules apply to the type of prioritization.
+There are a various different queuing prioritization strategies that can be used in Task Tower. Jobs with no recognized queue will be considered a lowest priority based on whatever rules apply to the type of prioritization.
 
 > 💡 By default, all jobs will be added to a `default` queue unless otherwise designated
 
@@ -161,7 +161,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
 
 You can use the background client to add tags to jobs to allow for easier categorization and filtering of jobs, facilitating  quick identification and management of related tasks. Tags also enhance monitoring and debugging capabilities to let you efficiently track job execution and diagnose issues within specific job  groups.
 
-You can add tags to a job using a veriety of APIs.
+You can add tags to a job using a variety of APIs.
 
 ```csharp
 var command = new DoAThing.Command("this is a tagged job");
@@ -178,14 +178,38 @@ client.TagJob(jobId, ["tag7", "tag8", "tag9"]);
 client.TagJob(jobId,  ["tag10", "tag11"]);
 ```
 
+## Job Configuration
 
+There several different options that can be used to configure jobs in Task Tower.
+
+- `SetQueue()` can be used to configure jobs to be sent to a particular queue
+  - If a queue is not set, the job will be sent to the `default` queue
+- `SetDisplayName()` can be used to give a job a human readable name in the Task Tower UI
+- `SetMaxRetryCount()` can be used to set the maximum number of times a job can be retried
+  - By default, a job will be retried 10 times with a progressive backoff strategy
+- `WithPreProcessingInterceptor()` can be used to add an interceptor to a job that will run before the job is processed
+- `WithDeathInterceptor()` can be used to add an interceptor to a job that will run after the job has been marked as `Dead` (i.e. has failed all retries)
+
+For example:
+```csharp
+builder.Services.AddTaskTower(builder.Configuration,x =>
+{
+    x.AddJobConfiguration<DoAPossiblyFailingThing>()
+        .SetQueue("critical")
+        .SetDisplayName("Possibly Failing Task")
+        .SetMaxRetryCount(2)
+        .WithPreProcessingInterceptor<JobWithUserContextInterceptor>()
+        .WithDeathInterceptor<SlackSaysDeathInterceptor>();
+  	//...
+});
+```
 
 ## Job Contextualizers and Interceptors
 
 Task tower providers interceptors for performing activities during various stages of a job's lifecycle.
 
-- `PreProcessing`: runs before processing a job.
-- `Death`: runs after a job has been marked as `Dead`.
+- `PreProcessing`: runs before processing a job
+- `Death`: runs after a job has been marked as `Dead` (i.e. has failed all retries)
 
 For example, if i wanted to send a slack notification when a job is dead, I could make an interceptor like this:
 

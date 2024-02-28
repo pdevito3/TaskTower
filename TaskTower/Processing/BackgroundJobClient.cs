@@ -47,7 +47,6 @@ public interface IBackgroundJobClient
     IBackgroundJobClient TagJob(Guid jobId, string tag);
     Task<IBackgroundJobClient> TagJobAsync(Guid jobId, IEnumerable<string> tags, CancellationToken cancellationToken = default);
     IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags);
-    // multi tag with params for tag
     IBackgroundJobClient TagJob(Guid jobId, params string[] tags);
     
     IBackgroundJobClient WithContext<TContextualizer>() 
