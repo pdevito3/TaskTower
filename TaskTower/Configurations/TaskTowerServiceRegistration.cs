@@ -4,6 +4,7 @@ using Dapper;
 using Database;
 using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
+using FluentMigrator.Runner;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,20 +32,28 @@ public static class TaskTowerServiceRegistration
         {
             services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
         }
+        var options = configuration.GetSection("TaskTowerOptions").Get<TaskTowerOptions>();
+        if (configureOptions != null)
+        {
+            var tempOptions = new TaskTowerOptions();
+            configuration.GetSection("TaskTowerOptions").Bind(tempOptions);
+            configureOptions(tempOptions);
+            options = tempOptions;
+        }
         
         SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
 
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
-
-        services.AddDbContext<TaskTowerDbContext>((serviceProvider, dbOptions) =>
-        {
-            var options = serviceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
-            dbOptions.UseNpgsql(options.ConnectionString, b => b.MigrationsAssembly(typeof(TaskTowerDbContext).Assembly.FullName))
-                .UseSnakeCaseNamingConvention();
-                // .EnableSensitiveDataLogging()
-                // .AddInterceptors(new ForUpdateSkipLockedInterceptor()));
-        });
-        services.AddHostedService<MigrationHostedService<TaskTowerDbContext>>();
+        
+        services.AddFluentMigratorCore()
+            .ConfigureRunner(rb => rb
+                .AddPostgres()
+                .WithGlobalConnectionString(options!.ConnectionString)
+                .ScanIn(typeof(TaskTowerServiceRegistration).Assembly).For.Migrations())
+            // .AddLogging(lb => lb.AddFluentMigratorConsole())
+            .BuildServiceProvider(false);
+        
+        services.AddHostedService<MigrationHostedService>();
         services.AddHostedService<JobNotificationListener>();
 
         return services;

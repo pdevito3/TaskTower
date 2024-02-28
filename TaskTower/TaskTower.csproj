@@ -10,6 +10,9 @@
     <ItemGroup>
         <PackageReference Include="Ardalis.SmartEnum" Version="8.0.0" />
         <PackageReference Include="Dapper" Version="2.1.28" />
+        <PackageReference Include="FluentMigrator" Version="5.1.0" />
+        <PackageReference Include="FluentMigrator.Runner" Version="5.1.0" />
+        <PackageReference Include="FluentMigrator.Runner.Postgres" Version="5.1.0" />
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
         <PackageReference Include="Npgsql" Version="8.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.0" />

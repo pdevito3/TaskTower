@@ -1,46 +1,57 @@
-namespace TaskTower.Database;
-
-using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+using FluentMigrator.Runner;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Npgsql;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-public class MigrationHostedService<TDbContext>(
-    IServiceScopeFactory scopeFactory,
-    ILogger<MigrationHostedService<TDbContext>> logger)
-    : IHostedService
-    where TDbContext : DbContext
+namespace TaskTower.Database
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public class MigrationHostedService : IHostedService
     {
-        try
-        {
-            logger.LogInformation("Applying migrations for {DbContext}", typeof(TDbContext).Name);
+        private readonly ILogger<MigrationHostedService> _logger;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-            await using var scope = scopeFactory.CreateAsyncScope();
-            var context = scope.ServiceProvider.GetRequiredService<TDbContext>();
-            await context.Database.MigrateAsync(cancellationToken);
-
-            logger.LogInformation("Migrations complete for {DbContext}", typeof(TDbContext).Name);
-        }
-        catch (Exception ex) when (ex is SocketException or NpgsqlException)
+        public MigrationHostedService(IServiceScopeFactory scopeFactory, ILogger<MigrationHostedService> logger)
         {
-            logger.LogError(ex, "Could not connect to the database. Please check the connection string and make sure the database is running.");
-            throw;
+            _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "An error occurred while applying the database migrations.");
-            throw;
-        }
-    }
 
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        return Task.CompletedTask;
+        public Task StartAsync(CancellationToken cancellationToken)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    _logger.LogInformation("Applying migrations using FluentMigrator");
+
+                    using (var scope = _scopeFactory.CreateScope())
+                    {
+                        var runner = scope.ServiceProvider.GetRequiredService<IMigrationRunner>();
+
+                        // Validate the migrations before applying
+                        runner.ListMigrations();
+
+                        // Apply the migrations
+                        runner.MigrateUp();
+
+                        _logger.LogInformation("Migrations applied successfully using FluentMigrator");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred while applying the database migrations using FluentMigrator.");
+                    throw;
+                }
+            }, cancellationToken);
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
+            // No operation on stop as migrations are only applied at the start
+            return Task.CompletedTask;
+        }
     }
 }

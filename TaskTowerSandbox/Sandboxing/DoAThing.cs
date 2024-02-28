@@ -34,15 +34,15 @@ public class DoAContextualizerThing(IJobContextAccessor jobContextAccessor)
     }
 }
 
-public class DoAnInjectableThing(IDummyLogger logger, TaskTowerDbContext context, PokeApiService pokeApiService)
+public class DoAnInjectableThing(IDummyLogger logger, PokeApiService pokeApiService)
 {
     public sealed record Command(string Data);
     
     public async Task Handle(Command request)
     {
         // await Task.Delay(1000);
-        var result = context.RunHistories.FirstOrDefault(x => x.Status == JobStatus.Completed());
-        Log.Information("I just read a RunHistory with an ID of {TempId}", result?.Id); 
+        // var result = context.RunHistories.FirstOrDefault(x => x.Status == JobStatus.Completed());
+        // Log.Information("I just read a RunHistory with an ID of {TempId}", result?.Id); 
         
         var pokemon = await pokeApiService.GetRandomPokemonAsync();
         Log.Information("I just read a Pokemon with an ID of {PokemonId} and content of {Name}", pokemon.Item1, pokemon.Item2);

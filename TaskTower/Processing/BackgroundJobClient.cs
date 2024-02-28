@@ -56,14 +56,12 @@ public interface IBackgroundJobClient
 public class BackgroundJobClient : IBackgroundJobClient
 {
     private readonly IOptions<TaskTowerOptions> _options;
-    private readonly TaskTowerDbContext _dbContext;
     private readonly ILogger _logger;
     private List<IJobContextualizer> _jobContextualizers = new List<IJobContextualizer>();
 
-    public BackgroundJobClient(IOptions<TaskTowerOptions> options, TaskTowerDbContext dbContext, ILogger<BackgroundJobClient> logger)
+    public BackgroundJobClient(IOptions<TaskTowerOptions> options, ILogger<BackgroundJobClient> logger)
     {
         _options = options;
-        _dbContext = dbContext;
         _logger = logger;
     }
     
