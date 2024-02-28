@@ -5,16 +5,15 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using TaskTower.Database;
 
 #nullable disable
 
-namespace TaskTowerSandbox.Migrations
+namespace TaskTower.Migrations
 {
-    using TaskTower.Database;
-
     [DbContext(typeof(TaskTowerDbContext))]
-    [Migration("20240214035908_AddJobHandlerProps")]
-    partial class AddJobHandlerProps
+    [Migration("20240228030515_InitialConsolidation")]
+    partial class InitialConsolidation
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -26,7 +25,7 @@ namespace TaskTowerSandbox.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.EnqueuedJobs.EnqueuedJob", b =>
+            modelBuilder.Entity("TaskTower.Domain.EnqueuedJobs.EnqueuedJob", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -52,7 +51,7 @@ namespace TaskTowerSandbox.Migrations
                     b.ToTable("enqueued_jobs", (string)null);
                 });
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.RunHistories.RunHistory", b =>
+            modelBuilder.Entity("TaskTower.Domain.RunHistories.RunHistory", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -92,7 +91,7 @@ namespace TaskTowerSandbox.Migrations
                     b.ToTable("run_histories", (string)null);
                 });
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", b =>
+            modelBuilder.Entity("TaskTower.Domain.TaskTowerJob.TaskTowerJob", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -106,11 +105,6 @@ namespace TaskTowerSandbox.Migrations
                     b.Property<DateTimeOffset?>("Deadline")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deadline");
-
-                    b.Property<string>("Fingerprint")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("fingerprint");
 
                     b.Property<int?>("MaxRetries")
                         .HasColumnType("integer")
@@ -138,6 +132,10 @@ namespace TaskTowerSandbox.Migrations
                     b.Property<DateTimeOffset?>("RanAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ran_at");
+
+                    b.Property<string>("RawContextParameters")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("context_parameters");
 
                     b.Property<int>("Retries")
                         .HasColumnType("integer")
@@ -169,11 +167,30 @@ namespace TaskTowerSandbox.Migrations
                     b.ToTable("jobs", (string)null);
                 });
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.EnqueuedJobs.EnqueuedJob", b =>
+            modelBuilder.Entity("TaskTower.Domain.TaskTowerTags.TaskTowerTag", b =>
                 {
-                    b.HasOne("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", "Job")
+                    b.Property<Guid>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("JobId", "Name")
+                        .HasName("pk_tags");
+
+                    b.HasIndex("Name")
+                        .HasDatabaseName("ix_tags_name");
+
+                    b.ToTable("tags", (string)null);
+                });
+
+            modelBuilder.Entity("TaskTower.Domain.EnqueuedJobs.EnqueuedJob", b =>
+                {
+                    b.HasOne("TaskTower.Domain.TaskTowerJob.TaskTowerJob", "Job")
                         .WithOne("EnqueuedJob")
-                        .HasForeignKey("TaskTowerSandbox.Domain.EnqueuedJobs.EnqueuedJob", "JobId")
+                        .HasForeignKey("TaskTower.Domain.EnqueuedJobs.EnqueuedJob", "JobId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_enqueued_jobs_jobs_job_id");
@@ -181,9 +198,9 @@ namespace TaskTowerSandbox.Migrations
                     b.Navigation("Job");
                 });
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.RunHistories.RunHistory", b =>
+            modelBuilder.Entity("TaskTower.Domain.RunHistories.RunHistory", b =>
                 {
-                    b.HasOne("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", "Job")
+                    b.HasOne("TaskTower.Domain.TaskTowerJob.TaskTowerJob", "Job")
                         .WithMany("RunHistory")
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -193,11 +210,25 @@ namespace TaskTowerSandbox.Migrations
                     b.Navigation("Job");
                 });
 
-            modelBuilder.Entity("TaskTowerSandbox.Domain.TaskTowerJob.TaskTowerJob", b =>
+            modelBuilder.Entity("TaskTower.Domain.TaskTowerTags.TaskTowerTag", b =>
+                {
+                    b.HasOne("TaskTower.Domain.TaskTowerJob.TaskTowerJob", "Job")
+                        .WithMany("Tags")
+                        .HasForeignKey("JobId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_tags_jobs_job_id");
+
+                    b.Navigation("Job");
+                });
+
+            modelBuilder.Entity("TaskTower.Domain.TaskTowerJob.TaskTowerJob", b =>
                 {
                     b.Navigation("EnqueuedJob");
 
                     b.Navigation("RunHistory");
+
+                    b.Navigation("Tags");
                 });
 #pragma warning restore 612, 618
         }

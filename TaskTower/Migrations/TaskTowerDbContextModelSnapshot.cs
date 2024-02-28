@@ -8,7 +8,7 @@ using TaskTower.Database;
 
 #nullable disable
 
-namespace TaskTowerSandbox.Migrations
+namespace TaskTower.Migrations
 {
     [DbContext(typeof(TaskTowerDbContext))]
     partial class TaskTowerDbContextModelSnapshot : ModelSnapshot
@@ -130,6 +130,10 @@ namespace TaskTowerSandbox.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("ran_at");
 
+                    b.Property<string>("RawContextParameters")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("context_parameters");
+
                     b.Property<int>("Retries")
                         .HasColumnType("integer")
                         .HasColumnName("retries");
@@ -147,10 +151,6 @@ namespace TaskTowerSandbox.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("type");
-
-                    b.Property<string>("_contextParameters")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("context_parameters");
 
                     b.HasKey("Id")
                         .HasName("pk_jobs");
