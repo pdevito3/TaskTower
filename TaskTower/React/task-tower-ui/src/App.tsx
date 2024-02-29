@@ -1,9 +1,12 @@
-function App() {
+import { getEnv } from "./utils/environment-utilities";
+
+export default function App() {
+  const environment = getEnv();
   return (
-    <>
-      <div className="text-purple-500 font-bold">Hello with TW</div>
-    </>
+    <div className="p-8">
+      <h1 className="text-xl font-bold text-violet-500">
+        Hello Task Tower in ({environment})
+      </h1>
+    </div>
   );
 }
-
-export default App;
