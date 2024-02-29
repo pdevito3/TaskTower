@@ -26,6 +26,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="React\" />
       <Folder Include="WebApp\" />
     </ItemGroup>
     <ItemGroup>

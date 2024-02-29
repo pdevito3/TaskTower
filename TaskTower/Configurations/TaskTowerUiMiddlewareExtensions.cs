@@ -26,16 +26,15 @@ public class TaskTowerUiMiddleware
         var path = context.Request.Path.Value.TrimStart('/');
 
         // Check if the request is for the custom UI or its assets
-        if (context.Request.Path.StartsWithSegments("/custom-ui", StringComparison.OrdinalIgnoreCase) 
+        if (context.Request.Path.StartsWithSegments($"/{TaskTowerConstants.TaskTowerUiRoot}", StringComparison.OrdinalIgnoreCase) 
             || context.Request.Path.StartsWithSegments("/assets", StringComparison.OrdinalIgnoreCase))
         {
             
-            if (path.StartsWith("custom-ui"))
+            if (path.StartsWith(TaskTowerConstants.TaskTowerUiRoot))
             {
-                path = path.Substring("custom-ui".Length).TrimStart('/');
+                path = path.Substring(TaskTowerConstants.TaskTowerUiRoot.Length).TrimStart('/');
             }
 
-            // If path is empty, it's a request for the root of custom-ui
             if (string.IsNullOrEmpty(path))
             {
                 path = "index.html";
