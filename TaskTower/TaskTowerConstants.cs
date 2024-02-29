@@ -5,6 +5,7 @@ public class TaskTowerConstants
     public const string ConnectionString =
         "Host=localhost;Port=41444;Database=dev_hello_task_tower_sandbox;Username=postgres;Password=postgres;Pooling=true;MinPoolSize=1;MaxPoolSize=100;";
     
+    public const string TaskTowerJobIdContextName = "_TaskTowerJobId";
     public static class Notifications
     {
         public const string JobAvailable = "job_available";

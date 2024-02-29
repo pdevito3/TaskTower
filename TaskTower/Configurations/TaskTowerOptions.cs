@@ -91,12 +91,20 @@ public class TaskTowerOptions
     
     public List<Type> GetInterceptors(Type? type, InterceptionStage stage)
     {
+        var interceptorTypes = new List<Type>();
+        if(stage == InterceptionStage.PreProcessing())
+        {
+            var runnerContextInterceptorType = typeof(TaskTowerRunnerContextInterceptor);
+            interceptorTypes.Add(runnerContextInterceptorType);
+        }
+
         if (type != null && JobConfigurations.TryGetValue(type, out var config))
-            return config.JobInterceptors
+            interceptorTypes.AddRange(config.JobInterceptors
                 .Where(interceptor => interceptor.Stage == stage)
-                .Select(interceptor => interceptor.InterceptorType).ToList();
-        
-        return new List<Type>();
+                .Select(interceptor => interceptor.InterceptorType)
+                .ToList());
+
+        return interceptorTypes;
     }
     public JobConfiguration AddJobConfiguration<T>()
     {
@@ -111,6 +119,7 @@ public class TaskTowerOptions
         public string? Queue { get; private set; }
         public string? DisplayName { get; private set; }
         public int? MaxRetryCount { get; private set; }
+
         public List<InterceptorAssignment> JobInterceptors { get; private set; } = new List<InterceptorAssignment>();
 
         // Enables fluent configuration by returning 'this'

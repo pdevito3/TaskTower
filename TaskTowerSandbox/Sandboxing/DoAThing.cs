@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Serilog;
 using TaskTower.Database;
 using TaskTower.Domain.JobStatuses;
+using TaskTower.Interception;
 
 public class DoAThing
 {
@@ -34,7 +35,7 @@ public class DoAContextualizerThing(IJobContextAccessor jobContextAccessor)
     }
 }
 
-public class DoAnInjectableThing(IDummyLogger logger, PokeApiService pokeApiService)
+public class DoAnInjectableThing(IDummyLogger logger, PokeApiService pokeApiService, ITaskTowerRunnerContext context)
 {
     public sealed record Command(string Data);
     
@@ -43,6 +44,8 @@ public class DoAnInjectableThing(IDummyLogger logger, PokeApiService pokeApiServ
         // await Task.Delay(1000);
         // var result = context.RunHistories.FirstOrDefault(x => x.Status == JobStatus.Completed());
         // Log.Information("I just read a RunHistory with an ID of {TempId}", result?.Id); 
+        
+        Log.Information("I am running a job with an Id of {Id} that I got from context", context.JobId);
         
         var pokemon = await pokeApiService.GetRandomPokemonAsync();
         Log.Information("I just read a Pokemon with an ID of {PokemonId} and content of {Name}", pokemon.Item1, pokemon.Item2);

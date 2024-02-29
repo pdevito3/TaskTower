@@ -211,7 +211,7 @@ Task tower providers interceptors for performing activities during various stage
 - `PreProcessing`: runs before processing a job
 - `Death`: runs after a job has been marked as `Dead` (i.e. has failed all retries)
 
-For example, if i wanted to send a slack notification when a job is dead, I could make an interceptor like this:
+For example, if I wanted to send a slack notification when a job is dead, I could make an interceptor like this:
 
 ```csharp
 public class FakeSlackService()
@@ -276,6 +276,8 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
   	//...
 });
 ```
+
+An example of an inerceptor being used internally is hydrating `ITaskTowerRunnerContext` so that job id's can be accessed inside a job.
 
 ### Context Parameters
 
@@ -365,3 +367,20 @@ var jobId = await client
     .WithContext<JobUserAssignmentContext>()
     .Enqueue<JobToDoAContextualizerThing>(x => x.Handle(command));
 ```
+
+## Accessing a Job's Id within the Job
+
+It's fairly common to want to access a job's id while in a job. To do this with Task Tower, you can just inject `ITaskTowerRunnerContext` and access it from there. For example:
+
+```csharp
+public class DoAnInjectableJobRunnerThing(ITaskTowerRunnerContext context)
+{
+    public async Task Handle()
+    {
+        Log.Information("I am running a job with an Id of {Id} that I got from context", context.JobId);
+    }
+}
+```
+
+
+

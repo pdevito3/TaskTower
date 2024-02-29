@@ -38,6 +38,7 @@ builder.Services.AddScoped<PokeApiService>();
 builder.Services.AddScoped<FakeSlackService>();
 builder.Services.AddScoped<FakeTeamsService>();
 
+builder.Services.AddScoped<IDummyLogger, DummyLogger>();
 builder.Services.AddScoped<IJobContextAccessor, JobContextAccessor>();
 builder.Services.AddScoped<IJobWithUserContext, JobWithUserContext>();
 builder.Services.AddTaskTower(builder.Configuration,x =>

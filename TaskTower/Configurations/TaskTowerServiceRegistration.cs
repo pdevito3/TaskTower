@@ -5,6 +5,7 @@ using Database;
 using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
 using FluentMigrator.Runner;
+using Interception;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,7 @@ public static class TaskTowerServiceRegistration
         SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
 
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
+        services.AddScoped<ITaskTowerRunnerContext, TaskTowerRunnerContext>();
         
         MigrationConfig.SchemaName = options!.Schema;
         services.AddFluentMigratorCore()
