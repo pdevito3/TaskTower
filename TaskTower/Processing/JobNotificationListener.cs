@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Configurations;
 using Dapper;
+using Database;
 using Domain.InterceptionStages;
 using Domain.JobStatuses;
 using Domain.RunHistories;
@@ -181,14 +182,14 @@ public class JobNotificationListener : BackgroundService
         {
             // TODO use domain model
             var insertResult = await conn.ExecuteAsync(
-                "INSERT INTO enqueued_jobs(id, job_id, queue) VALUES (gen_random_uuid(), @Id, @Queue)",
+                $"INSERT INTO {MigrationConfig.SchemaName}.enqueued_jobs(id, job_id, queue) VALUES (gen_random_uuid(), @Id, @Queue)",
                 new { job.Id, job.Queue },
                 transaction: tx
             );
             
             // TODO use domain model
             var updateResult = await conn.ExecuteAsync(
-                $"UPDATE jobs SET status = @Status WHERE id = @Id",
+                $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status WHERE id = @Id",
                 new { job.Id, Status = JobStatus.Enqueued().Value },
                 transaction: tx
             );
@@ -254,13 +255,13 @@ public class JobNotificationListener : BackgroundService
                 
                 var nowDone = DateTimeOffset.UtcNow;
                 await conn.ExecuteAsync(
-                    $"UPDATE jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+                    $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
                     new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
                     transaction: tx
                 );
                 
                 await conn.ExecuteAsync(
-                    "DELETE FROM enqueued_jobs WHERE job_id = @Id",
+                    $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
                     new { job.Id },
                     transaction: tx
                 );
@@ -277,7 +278,7 @@ public class JobNotificationListener : BackgroundService
             {
                 job.MarkAsFailed();
                 await conn.ExecuteAsync(
-                    @$"UPDATE jobs 
+                    @$"UPDATE {MigrationConfig.SchemaName}.jobs 
     SET 
         status = @Status, 
         type = @Type, 
@@ -309,7 +310,7 @@ public class JobNotificationListener : BackgroundService
                 );
                 
                 await conn.ExecuteAsync(
-                    "DELETE FROM enqueued_jobs WHERE job_id = @Id",
+                    $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
                     new { job.Id },
                     transaction: tx
                 );
@@ -386,7 +387,7 @@ public class JobNotificationListener : BackgroundService
     private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)
     {
         await conn.ExecuteAsync(
-            "INSERT INTO run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
+            $"INSERT INTO {MigrationConfig.SchemaName}.run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
             new { runHistory.Id, runHistory.JobId, Status = runHistory.Status.Value, runHistory.Comment, runHistory.Details, runHistory.OccurredAt },
             transaction: tx
         );

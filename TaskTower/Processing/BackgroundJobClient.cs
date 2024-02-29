@@ -285,7 +285,7 @@ public class BackgroundJobClient : IBackgroundJobClient
         try
         {
             conn.Execute(
-                "INSERT INTO tags (job_id, name) VALUES (@JobId, @Name)",
+                $"INSERT INTO {MigrationConfig.SchemaName}.tags (job_id, name) VALUES (@JobId, @Name)",
                 new
                 {
                     JobId = jobId,
@@ -321,7 +321,7 @@ public class BackgroundJobClient : IBackgroundJobClient
         await conn.OpenAsync(cancellationToken);
         
         await conn.ExecuteAsync(
-            "INSERT INTO jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries, context_parameters) " +
+            $"INSERT INTO {MigrationConfig.SchemaName}.jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries, context_parameters) " +
             "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries, @ContextParameters::jsonb)",
             new
             {

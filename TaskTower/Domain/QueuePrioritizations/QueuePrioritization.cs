@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using Ardalis.SmartEnum;
 using Dapper;
+using Database;
 using EnqueuedJobs;
 using JobStatuses;
 using Npgsql;
@@ -91,7 +92,7 @@ public class QueuePrioritization : ValueObject
                 var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
                     $@"
     SELECT id, queue
-    FROM jobs 
+    FROM {MigrationConfig.SchemaName}.jobs 
     WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
       AND run_after <= @Now
     ORDER BY run_after 
@@ -111,7 +112,7 @@ public class QueuePrioritization : ValueObject
                 return await conn.QueryAsync<EnqueuedJob>(
                     $@"
     SELECT job_id as JobId, queue as Queue
-    FROM enqueued_jobs
+    FROM {MigrationConfig.SchemaName}.enqueued_jobs
     FOR UPDATE SKIP LOCKED
     LIMIT {limit}",
                     transaction: tx
@@ -139,7 +140,7 @@ public class QueuePrioritization : ValueObject
                 var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
                     $@"
 SELECT id, queue
-FROM jobs 
+FROM {MigrationConfig.SchemaName}.jobs 
 WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
 ORDER BY queue, run_after 
@@ -160,7 +161,7 @@ LIMIT 8000",
                 return await conn.QueryAsync<EnqueuedJob>(
                     $@"
 SELECT job_id as JobId, queue as Queue
-FROM enqueued_jobs
+FROM {MigrationConfig.SchemaName}.enqueued_jobs
 ORDER BY queue
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
@@ -197,7 +198,7 @@ LIMIT {limit}",
                 var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
                     $@"
 SELECT id, queue
-FROM jobs 
+FROM {MigrationConfig.SchemaName}.jobs 
 WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
 ORDER BY {priorityCaseSql} run_after 
@@ -234,7 +235,7 @@ LIMIT 8000",
                 return await conn.QueryAsync<EnqueuedJob>(
                     $@"
 SELECT job_id as JobId, queue as Queue
-FROM enqueued_jobs
+FROM {MigrationConfig.SchemaName}.enqueued_jobs
 ORDER BY {priorityCaseSql} DESC
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
@@ -390,7 +391,7 @@ SELECT id as Id,
        created_at as CreatedAt, 
        deadline as Deadline,
        context_parameters as RawContextParameters
-FROM jobs
+FROM {MigrationConfig.SchemaName}.jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
 LIMIT 1",

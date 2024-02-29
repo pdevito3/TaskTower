@@ -45,6 +45,7 @@ public static class TaskTowerServiceRegistration
 
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
         
+        MigrationConfig.SchemaName = options!.Schema;
         services.AddFluentMigratorCore()
             .ConfigureRunner(rb => rb
                 .AddPostgres()

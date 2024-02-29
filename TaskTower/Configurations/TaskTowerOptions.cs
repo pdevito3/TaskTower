@@ -3,8 +3,6 @@ namespace TaskTower.Configurations;
 using Domain.InterceptionStages;
 using Domain.QueuePrioritizations;
 using Interception;
-using Microsoft.Extensions.DependencyInjection;
-using Processing;
 
 public class TaskTowerOptions
 {
@@ -19,6 +17,11 @@ public class TaskTowerOptions
     /// String containing connection details for the backend
     /// </summary>
     public string ConnectionString { get; set; } = null!;
+
+    /// <summary>
+    /// The schema to use for the task tower tables
+    /// </summary>
+    public string Schema { get; set; } = "task_tower";
     
     /// <summary>
     /// The interval of time between checking for new future/retry jobs that need to be enqueued
