@@ -8,7 +8,13 @@ public static class TaskTowerUiMiddlewareExtensions
 {
     public static IApplicationBuilder UseTaskTowerUi(this IApplicationBuilder app)
     {
-        return app.UseMiddleware<TaskTowerUiMiddleware>();
+        app.UseMiddleware<TaskTowerUiMiddleware>();
+        app.UseRouting();
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints.MapControllers();
+        });
+        return app;
     }
 }
 

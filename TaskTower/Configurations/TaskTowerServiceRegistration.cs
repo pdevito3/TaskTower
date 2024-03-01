@@ -1,11 +1,13 @@
 namespace TaskTower.Configurations;
 
+using Controllers.v1;
 using Dapper;
 using Database;
 using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
 using FluentMigrator.Runner;
 using Interception;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +60,8 @@ public static class TaskTowerServiceRegistration
         
         services.AddHostedService<MigrationHostedService>();
         services.AddHostedService<JobNotificationListener>();
+        
+        services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(JobsController).Assembly));
 
         return services;
     }

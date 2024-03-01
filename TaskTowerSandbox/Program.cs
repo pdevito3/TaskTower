@@ -81,11 +81,12 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
         .WithPreProcessingInterceptor<JobWithUserContextInterceptor>();
 });
 
-// builder.Services.AddScoped<IDummyLogger, DummyLogger>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+app.UseRouting();
+app.MapControllers();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
