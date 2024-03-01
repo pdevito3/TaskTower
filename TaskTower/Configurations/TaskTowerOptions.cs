@@ -89,6 +89,14 @@ public class TaskTowerOptions
         return null;
     }
     
+    public string? GetJobName(Type? type)
+    {
+        if (type != null && JobConfigurations.TryGetValue(type, out var config))
+            return config.DisplayName;
+        
+        return null;
+    }
+    
     public List<Type> GetInterceptors(Type? type, InterceptionStage stage)
     {
         var interceptorTypes = new List<Type>();

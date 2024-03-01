@@ -111,7 +111,8 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
-            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType),
+            JobName = _options?.Value?.GetJobName(handlerType)
         };
         if (delay.HasValue)
         {
@@ -151,7 +152,8 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
-            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType),
+            JobName = _options?.Value?.GetJobName(handlerType)
         };
         if (delay.HasValue)
         {
@@ -191,7 +193,8 @@ public class BackgroundJobClient : IBackgroundJobClient
             Method = methodName!,
             ParameterTypes = parameterTypes ?? Array.Empty<string>(),
             Payload = serializedArguments,
-            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType)
+            MaxRetries = _options?.Value?.GetMaxRetryCount(handlerType),
+            JobName = _options?.Value?.GetJobName(handlerType)
         };
         
         if (delay.HasValue)
@@ -322,8 +325,8 @@ public class BackgroundJobClient : IBackgroundJobClient
         await conn.OpenAsync(cancellationToken);
         
         await conn.ExecuteAsync(
-            $"INSERT INTO {MigrationConfig.SchemaName}.jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries, context_parameters) " +
-            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries, @ContextParameters::jsonb)",
+            $"INSERT INTO {MigrationConfig.SchemaName}.jobs (id, queue, type, method, parameter_types, payload, max_retries, run_after, ran_at, deadline, created_at, status, retries, context_parameters, job_name) " +
+            "VALUES (@Id, @Queue, @Type, @Method, @ParameterTypes, @Payload::jsonb, @MaxRetries, @RunAfter, @RanAt, @Deadline, @CreatedAt, @Status, @Retries, @ContextParameters::jsonb, @JobName)",
             new
             {
                 job.Id,
@@ -339,7 +342,8 @@ public class BackgroundJobClient : IBackgroundJobClient
                 Status = job.Status.Value,
                 job.Retries,
                 job.RanAt,
-                ContextParameters = job.RawContextParameters
+                ContextParameters = job.RawContextParameters,
+                job.JobName
             });
         
         // _dbContext.Jobs.Add(job);

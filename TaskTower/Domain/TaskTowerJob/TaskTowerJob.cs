@@ -73,6 +73,11 @@ public class TaskTowerJob
     /// The time after which the job should no longer be run
     /// </summary>
     public DateTimeOffset? Deadline { get; private set; }
+
+    /// <summary>
+    /// A friendly name for the job to be used in the Task Tower Dashboard
+    /// </summary>
+    public string JobName { get; set; }
     
     private readonly List<ContextParameter> _contextParameters = new();
 
@@ -119,6 +124,14 @@ public class TaskTowerJob
         taskTowerJob.RunAfter = jobForCreation.RunAfter ?? DateTimeOffset.UtcNow;
         taskTowerJob.Deadline = jobForCreation.Deadline;
         taskTowerJob.CreatedAt = DateTimeOffset.UtcNow;
+        
+        var typeForFallback = jobForCreation.Type.Contains(',') 
+            ? jobForCreation.Type.Split(',').First() 
+            : jobForCreation.Type;
+        var fallbackName = typeForFallback.Contains('.') 
+            ? typeForFallback.Split('.').Last() 
+            : typeForFallback;
+        taskTowerJob.JobName = jobForCreation.JobName ?? fallbackName; 
         
         taskTowerJob.Type = jobForCreation.Type;
         taskTowerJob.Method = jobForCreation.Method;

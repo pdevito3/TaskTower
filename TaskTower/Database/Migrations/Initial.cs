@@ -18,6 +18,7 @@ public class Initial : Migration
             .WithColumn("status").AsString().NotNullable()
             .WithColumn("type").AsString().NotNullable()
             .WithColumn("method").AsString().NotNullable()
+            .WithColumn("job_name").AsString().Nullable()
             .WithColumn("parameter_types").AsCustom("text[]").NotNullable()
             .WithColumn("payload").AsCustom("jsonb").NotNullable()
             .WithColumn("retries").AsInt32().NotNullable()
