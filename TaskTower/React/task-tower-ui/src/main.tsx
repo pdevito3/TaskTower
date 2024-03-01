@@ -3,7 +3,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
-import { getEnv } from "./utils/environment-utilities.ts";
+import { getEnv } from "./utils/index.ts";
 
 const queryClient = new QueryClient();
 

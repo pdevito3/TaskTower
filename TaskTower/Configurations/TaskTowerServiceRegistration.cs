@@ -7,10 +7,12 @@ using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
 using FluentMigrator.Runner;
 using Interception;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Processing;
 
@@ -21,7 +23,8 @@ public static class TaskTowerServiceRegistration
     /// <summary>
     /// Adds TaskTower service to the service collection.
     /// </summary>
-    public static IServiceCollection AddTaskTower(this IServiceCollection services, IConfiguration configuration, Action<TaskTowerOptions>? configureOptions = null)
+    public static IServiceCollection AddTaskTower(this IServiceCollection services, IConfiguration configuration,
+        Action<TaskTowerOptions>? configureOptions = null)
     {
         if (configureOptions != null)
         {
@@ -35,6 +38,7 @@ public static class TaskTowerServiceRegistration
         {
             services.Configure<TaskTowerOptions>(configuration.GetSection("TaskTowerOptions"));
         }
+
         var options = configuration.GetSection("TaskTowerOptions").Get<TaskTowerOptions>();
         if (configureOptions != null)
         {
@@ -43,12 +47,12 @@ public static class TaskTowerServiceRegistration
             configureOptions(tempOptions);
             options = tempOptions;
         }
-        
+
         SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
 
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
         services.AddScoped<ITaskTowerRunnerContext, TaskTowerRunnerContext>();
-        
+
         MigrationConfig.SchemaName = options!.Schema;
         services.AddFluentMigratorCore()
             .ConfigureRunner(rb => rb
@@ -57,10 +61,11 @@ public static class TaskTowerServiceRegistration
                 .ScanIn(typeof(TaskTowerServiceRegistration).Assembly).For.Migrations())
             // .AddLogging(lb => lb.AddFluentMigratorConsole())
             .BuildServiceProvider(false);
-        
+
+        services.AddCorsService("TaskTowerCorsPolicy");
         services.AddHostedService<MigrationHostedService>();
         services.AddHostedService<JobNotificationListener>();
-        
+
         services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(JobsController).Assembly));
 
         return services;

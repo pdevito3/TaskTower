@@ -60,7 +60,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
     x.AddJobConfiguration<DoAPossiblyFailingThing>()
         .SetQueue("critical")
         .SetDisplayName("Possibly Failing Task")
-        .SetMaxRetryCount(0)
+        .SetMaxRetryCount(2)
         .WithDeathInterceptor<SlackSaysDeathInterceptor>()
         .WithDeathInterceptor<TeamsSaysDeathInterceptor>();
 
@@ -85,12 +85,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseTaskTowerUi();
 app.UseRouting();
 app.MapControllers();
+
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseHttpsRedirection();
-app.UseTaskTowerUi();
 
 
 

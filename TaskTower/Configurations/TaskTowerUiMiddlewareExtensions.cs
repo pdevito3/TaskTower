@@ -8,6 +8,7 @@ public static class TaskTowerUiMiddlewareExtensions
 {
     public static IApplicationBuilder UseTaskTowerUi(this IApplicationBuilder app)
     {
+        app.UseCors("TaskTowerCorsPolicy");
         app.UseMiddleware<TaskTowerUiMiddleware>();
         app.UseRouting();
         app.UseEndpoints(endpoints =>

@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { getEnv } from "./utils/environment-utilities";
+import { JobStatusBadge } from "./domain/jobs/components/job-status";
+import { Job } from "./domain/jobs/types";
+import { getEnv } from "./utils";
 
 export default function App() {
   const environment = getEnv();
@@ -21,10 +23,10 @@ function useJobs() {
       axios
         .get(
           getEnv() === "Standalone"
-            ? "https://localhost:5130/api/v1/jobs"
+            ? "http://localhost:5130/api/v1/jobs"
             : "/api/v1/jobs"
         )
-        .then((response) => response.data),
+        .then((response) => response.data as Job[]),
   });
 }
 
@@ -38,34 +40,14 @@ function Jobs() {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {data &&
-        data?.map(
-          (job: {
-            id: string;
-            imageLink: string;
-            title: string;
-            description: string;
-            jobSourceLink: string;
-          }) => (
-            <div key={job.id} className="p-4 bg-white rounded-lg shadow-lg">
-              <img
-                src={job.imageLink}
-                alt={job.title}
-                className="object-cover w-full h-32 sm:h-48"
-              />
-              <div className="p-4">
-                <h2 className="text-lg font-bold">{job.title}</h2>
-                <p className="text-sm">{job.description}</p>
-                <a
-                  href={job.jobSourceLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Source
-                </a>
-              </div>
-            </div>
-          )
-        )}
+        data?.map((job) => (
+          <div key={job.id} className="p-4 bg-white rounded-lg shadow-lg">
+            <h2 className="text-lg font-bold text-slate-800">{job.jobName}</h2>
+            {/* <pre>{JSON.stringify(job, null, 2)}</pre> */}
+
+            <JobStatusBadge status={job.status.value} />
+          </div>
+        ))}
     </div>
   );
 }
