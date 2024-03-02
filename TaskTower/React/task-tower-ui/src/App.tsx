@@ -1,13 +1,14 @@
+import { JobsWorklist } from "@/domain/jobs/components/worklist/jobs-worklist";
+import { createColumns } from "@/domain/jobs/components/worklist/jobs-worklist-columns";
+import { Job } from "@/domain/jobs/types";
+import { getEnv } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { JobStatusBadge } from "./domain/jobs/components/job-status";
-import { Job } from "./domain/jobs/types";
-import { getEnv } from "./utils";
 
 export default function App() {
   const environment = getEnv();
   return (
-    <div className="p-8">
+    <div className="p-8 w-full space-y-5">
       <h1 className="text-xl font-bold text-violet-500">
         Hello Task Tower in ({environment})
       </h1>
@@ -23,31 +24,20 @@ function useJobs() {
       axios
         .get(
           getEnv() === "Standalone"
-            ? "http://localhost:5130/api/v1/jobs"
-            : "/api/v1/jobs"
+            ? "http://localhost:5130/api/v1/jobs/paginated"
+            : "/api/v1/jobs/paginated"
         )
         .then((response) => response.data as Job[]),
   });
 }
 
 function Jobs() {
-  const { isLoading, data } = useJobs();
+  const { isLoading, data: jobs } = useJobs();
 
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {data &&
-        data?.map((job) => (
-          <div key={job.id} className="p-4 bg-white rounded-lg shadow-lg">
-            <h2 className="text-lg font-bold text-slate-800">{job.jobName}</h2>
-            {/* <pre>{JSON.stringify(job, null, 2)}</pre> */}
-
-            <JobStatusBadge status={job.status.value} />
-          </div>
-        ))}
-    </div>
-  );
+  const columns = createColumns();
+  return <JobsWorklist columns={columns} data={jobs ?? []} isLoading={false} />;
 }

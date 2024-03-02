@@ -10,11 +10,9 @@ export interface Job {
   id: string;
   jobName: string;
   queue: string | null;
-  status: {
-    value: JobStatus;
-  };
+  status: JobStatus;
   type: string;
-  Method: string;
+  method: string;
   parameterTypes: string[];
   payload: string;
   retries: number;

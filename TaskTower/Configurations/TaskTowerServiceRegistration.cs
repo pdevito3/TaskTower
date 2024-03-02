@@ -5,6 +5,7 @@ using Dapper;
 using Database;
 using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
+using Domain.TaskTowerJob.Services;
 using FluentMigrator.Runner;
 using Interception;
 using Microsoft.AspNetCore.Hosting;
@@ -49,7 +50,8 @@ public static class TaskTowerServiceRegistration
         }
 
         SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
-
+        
+        services.AddScoped<ITaskTowerJobRepository, TaskTowerJobRepository>();
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
         services.AddScoped<ITaskTowerRunnerContext, TaskTowerRunnerContext>();
 

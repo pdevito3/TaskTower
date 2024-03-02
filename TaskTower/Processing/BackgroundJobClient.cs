@@ -345,9 +345,6 @@ public class BackgroundJobClient : IBackgroundJobClient
                 ContextParameters = job.RawContextParameters,
                 job.JobName
             });
-        
-        // _dbContext.Jobs.Add(job);
-        // await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     private static string SerializedArguments(MethodCallExpression methodCallExpression)
