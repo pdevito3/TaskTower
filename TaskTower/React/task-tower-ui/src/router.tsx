@@ -1,6 +1,5 @@
 import { Notification } from "@/components/notifications";
 import AuthLayout from "@/layouts/auth-layout";
-import { ReactQueryDevtools, TanStackRouterDevtools } from "@/lib/dev-tools";
 import { siteConfig } from "@/lib/site-config";
 import { IndexPage } from "@/pages/index";
 import { JobsWorklistPage } from "@/pages/jobs";
@@ -47,32 +46,6 @@ const appRoute = createRootRoute({
         <div className="h-full min-h-screen font-sans antialiased scroll-smooth debug-screens [font-feature-settings:'ss01'] ">
           <Outlet />
           <Notification />
-          <div className="hidden md:block">
-            <TanStackRouterDevtools
-              position="top-right"
-              toggleButtonProps={{
-                style: {
-                  marginRight: "5rem",
-                  marginTop: "1.25rem",
-                },
-              }}
-            />
-            <ReactQueryDevtools buttonPosition="top-right" />
-          </div>
-          <div className="block md:hidden">
-            <TanStackRouterDevtools
-              position="bottom-left"
-              toggleButtonProps={{
-                style: {
-                  // marginLeft: "5rem",
-                  marginBottom: "2rem",
-                },
-              }}
-            />
-            <div className="mb-6 ml-24">
-              <ReactQueryDevtools buttonPosition="bottom-left" />
-            </div>
-          </div>
         </div>
       </>
     );
@@ -81,7 +54,7 @@ const appRoute = createRootRoute({
 
 const authLayout = createRoute({
   getParentRoute: () => appRoute,
-  id: "auth-layout",
+  path: "/tasktower",
   component: AuthLayout,
   // component: () => {
   //   return (
@@ -92,15 +65,15 @@ const authLayout = createRoute({
   // },
 });
 
-const dashboardRoute = createRoute({
+export const dashboardRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/",
   component: IndexPage,
 });
 
-const jobsRoute = createRoute({
+export const jobsRoute = createRoute({
   getParentRoute: () => authLayout,
-  path: "jobs",
+  path: "/jobs",
   component: () => {
     return <Outlet />;
   },

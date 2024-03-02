@@ -107,7 +107,7 @@ export function JobsWorklist<TData, TValue>({
                       className="group"
                       onRowClick={() => {
                         navigate({
-                          to: `/jobs/${row.getValue("id")}`,
+                          to: `/tasktower/jobs/${row.getValue("id")}`,
                           params: {
                             jobId: row.getValue("id"),
                           },

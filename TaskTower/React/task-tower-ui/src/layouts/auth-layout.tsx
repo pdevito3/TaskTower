@@ -13,8 +13,8 @@ type NavType = {
 };
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Jobs", href: "/jobs", icon: PackageOpen },
+  { name: "Dashboard", href: "/tasktower", icon: LayoutDashboard },
+  { name: "Jobs", href: "/tasktower/jobs", icon: PackageOpen },
 ] as NavType[];
 
 export default function AuthLayout() {
@@ -60,15 +60,15 @@ function DesktopMenu() {
       {/* Sidebar component, swap this element with another sidebar if you like */}
       <div className="flex flex-col px-6 overflow-y-auto border-r bg-card grow gap-y-5">
         <div className="flex items-center h-16 shrink-0">
-          <Link to="/">
-            <div className="flex items-center">
+          <Link to="/tasktower">
+            <div className="flex items-center space-x-2">
               <img
                 className="w-8 h-8"
                 // src="https://tailwindui.com/img/logos/mark.svg?color=emerald&shade=500"
                 src={logo}
                 alt="Task Tower"
               />
-              <p>Task Tower</p>
+              <p className="text-xl font-semibold tracking-tight">Task Tower</p>
             </div>
           </Link>
         </div>
@@ -81,10 +81,19 @@ function DesktopMenu() {
                     <Link
                       to={item.href}
                       className={cn(
-                        "text-secondary-foreground hover:text-primary/80 hover:bg-gray-50",
+                        "text-secondary-foreground hover:text-primary/80 hover:bg-gray-10 border-transparent border-2 hover:border-gray-200",
                         "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold",
-                        "data-[status=active]:bg-card data-[status=active]:text-primary data-[status=active]:hover:bg-secondary/50"
+                        " data-[status=active]:border-emerald-500 data-[status=active]:text-emerald-500 data-[status=active]:hover:bg-zinc-100/50"
                       )}
+                      // className={cn(
+                      //   "text-secondary-foreground hover:text-primary/80 hover:bg-gray-50 hover:border-2 hover:border-gray-100",
+                      //   "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold"
+                      // )}
+                      activeOptions={{ exact: true }}
+                      // activeProps={{
+                      //   className:
+                      //     "data-[status=active]:border-2 data-[status=active]:border-emerald-500 data-[status=active]:text-emerald-500 data-[status=active]:hover:bg-zinc-100/50",
+                      // }}
                     >
                       <item.icon
                         className={cn("h-6 w-6 shrink-0")}

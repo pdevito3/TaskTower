@@ -1,11 +1,13 @@
 // import { JobStatusBadge } from "@/domain/jobs/components/job-status";
 // import { JobStatus } from "@/domain/jobs/types";
+import { jobsRoute } from "@/router";
 import { useParams } from "@tanstack/react-router";
 import { Helmet } from "react-helmet";
 
 export function EditJobPage() {
   const queryParams = useParams({
-    from: "/auth-layout/jobs/$jobId",
+    // from: "/auth-layout/jobs/$jobId",
+    from: `${jobsRoute.fullPath}/$jobId`,
   });
   const jobId = queryParams.jobId;
   // const { data: job } = useGetJobForEdit(jobId);
