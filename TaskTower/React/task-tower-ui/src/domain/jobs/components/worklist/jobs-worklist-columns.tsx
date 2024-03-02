@@ -2,6 +2,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { JobStatusBadge } from "@/domain/jobs/components/job-status";
 import { Job, JobStatus } from "@/domain/jobs/types";
 import { ColumnDef } from "@tanstack/react-table";
+import { formatDistanceToNow, parseISO } from "date-fns";
 
 type Columns = ColumnDef<Job>;
 export const createColumns = (): Columns[] => [
@@ -16,33 +17,24 @@ export const createColumns = (): Columns[] => [
   {
     accessorKey: "status",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" canSort={false} />
+      <DataTableColumnHeader column={column} title="Status" canSort={true} />
     ),
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      console.log(status);
-      // const containerType = row.getValue("status") as string;
-      console.log(row);
       return (
-        <div className="flex flex-col">
-          <p>
-            {(status?.length ?? 0) > 0 ? (
-              <JobStatusBadge status={status as JobStatus} />
-            ) : (
-              "—"
-            )}
-          </p>
-        </div>
+        <p>
+          {(status?.length ?? 0) > 0 ? (
+            <JobStatusBadge status={status as JobStatus} />
+          ) : (
+            "—"
+          )}
+        </p>
       );
     },
   },
   {
     accessorKey: "jobName",
     header: "Job Name",
-  },
-  {
-    accessorKey: "method",
-    header: "Method",
   },
   {
     accessorKey: "queue",
@@ -62,11 +54,49 @@ export const createColumns = (): Columns[] => [
   },
   {
     accessorKey: "runAfter",
-    header: "Run After",
+    header: ({ column }) => (
+      <DataTableColumnHeader
+        column={column}
+        title="Next Run At"
+        canSort={true}
+      />
+    ),
+    cell: ({ row }) => {
+      const runAfter = row.getValue("runAfter") as string;
+
+      if (runAfter < new Date().toISOString()) {
+        return <p>—</p>;
+      }
+
+      return (
+        <p>
+          {(runAfter?.length ?? 0) > 0
+            ? formatDistanceToNow(parseISO(runAfter), { addSuffix: true })
+            : "—"}
+        </p>
+      );
+    },
   },
   {
     accessorKey: "ranAt",
-    header: "Ran At",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Ran At" canSort={true} />
+    ),
+    cell: ({ row }) => {
+      const ranAt = row.getValue("ranAt") as string;
+
+      if (!ranAt) {
+        return <p>—</p>;
+      }
+
+      return (
+        <p>
+          {(ranAt?.length ?? 0) > 0
+            ? formatDistanceToNow(parseISO(ranAt), { addSuffix: true })
+            : "—"}
+        </p>
+      );
+    },
   },
   // {
   //   accessorKey: "createdAt",
@@ -77,3 +107,47 @@ export const createColumns = (): Columns[] => [
   //   header: "Deadline",
   // },
 ];
+
+// const formatCountdown = ({ isoDate }: { isoDate: string }) => {
+//   const targetDate = parseISO(isoDate);
+//   return formatDistanceToNow(targetDate, { addSuffix: true });
+// };
+
+// const formatCountdown = ({ isoDate }: { isoDate: string }) => {
+//   const now = new Date();
+//   const targetDate = parseISO(isoDate);
+//   const secondsDiff = differenceInSeconds(targetDate, now);
+
+//   if (secondsDiff === 1) {
+//     return `in 1 second`;
+//   }
+
+//   // If the difference is less than 60 seconds, format it as "in xx seconds"
+//   if (secondsDiff >= 0 && secondsDiff <= 60) {
+//     return `in ${secondsDiff} seconds`;
+//   }
+
+//   return formatDistanceToNow(targetDate, { addSuffix: true });
+// };
+
+// const useCountdown = ({ isoDate }: { isoDate: string }) => {
+//   const [countdown, setCountdown] = useState(() =>
+//     formatCountdown({ isoDate })
+//   );
+
+//   useEffect(() => {
+//     const intervalId = setInterval(() => {
+//       setCountdown(formatCountdown({ isoDate }));
+//     }, 1000);
+
+//     return () => clearInterval(intervalId);
+//   }, [isoDate]);
+
+//   return countdown;
+// };
+
+// const CountdownTimer = ({ isoDate }: { isoDate: string }) => {
+//   const countdown = useCountdown({ isoDate });
+
+//   return <div>{countdown}</div>;
+// };
