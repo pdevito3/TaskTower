@@ -5,16 +5,16 @@ import { IndexPage } from "@/pages/index";
 import { JobsWorklistPage } from "@/pages/jobs";
 import {
   Outlet,
-  RootRoute,
-  Route,
   RoutePaths,
-  Router,
+  createRootRoute,
+  createRoute,
+  createRouter,
 } from "@tanstack/react-router";
 import { Helmet } from "react-helmet";
 import { z } from "zod";
 import { EditJobPage } from "./pages/jobs/edit-job-page";
 
-const appRoute = new RootRoute({
+const appRoute = createRootRoute({
   component: () => {
     return (
       <>
@@ -78,7 +78,7 @@ const appRoute = new RootRoute({
   },
 });
 
-const authLayout = new Route({
+const authLayout = createRoute({
   getParentRoute: () => appRoute,
   id: "auth-layout",
   // component: AuthLayout,
@@ -92,13 +92,13 @@ const authLayout = new Route({
   },
 });
 
-const dashboardRoute = new Route({
+const dashboardRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "/",
   component: IndexPage,
 });
 
-const jobsRoute = new Route({
+const jobsRoute = createRoute({
   getParentRoute: () => authLayout,
   path: "jobs",
   component: () => {
@@ -106,13 +106,13 @@ const jobsRoute = new Route({
   },
 });
 
-const jobWorklistRoute = new Route({
+const jobWorklistRoute = createRoute({
   getParentRoute: () => jobsRoute,
   path: "/",
   component: JobsWorklistPage,
 });
 
-const jobRoute = new Route({
+const jobRoute = createRoute({
   getParentRoute: () => jobsRoute,
   path: "$jobId",
   parseParams: (params) => ({
@@ -129,7 +129,7 @@ const routeTree = appRoute.addChildren([
 ]);
 
 // Create the router using your route tree
-export const router = new Router({ routeTree });
+export const router = createRouter({ routeTree });
 
 // Register your router for maximum type safety
 declare module "@tanstack/react-router" {
