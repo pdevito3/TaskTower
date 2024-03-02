@@ -5,6 +5,9 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: {
+    port: 4264,
+  },
   build: {
     outDir: "../../WebApp",
   },
