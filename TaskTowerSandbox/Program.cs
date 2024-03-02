@@ -298,6 +298,24 @@ app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobCli
     }
 });
 
+app.MapPost("/thirty-second-delay", async (HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        var jobId = await client.Schedule<DoAThing>(x => 
+                x.Handle(new DoAThing.Command("this is a scheduled job")), 
+            TimeSpan.FromSeconds(30));
+
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
 app.MapPost("/two-second-delay", async (HttpContext http, IBackgroundJobClient client) =>
 {
     try

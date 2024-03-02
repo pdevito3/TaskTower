@@ -131,7 +131,8 @@ public class TaskTowerJob
         var fallbackName = typeForFallback.Contains('.') 
             ? typeForFallback.Split('.').Last() 
             : typeForFallback;
-        taskTowerJob.JobName = jobForCreation.JobName ?? fallbackName; 
+        var combo = $"{fallbackName}.{jobForCreation.Method}";
+        taskTowerJob.JobName = jobForCreation.JobName ?? combo; 
         
         taskTowerJob.Type = jobForCreation.Type;
         taskTowerJob.Method = jobForCreation.Method;
