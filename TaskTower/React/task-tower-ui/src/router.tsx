@@ -1,4 +1,5 @@
 import { Notification } from "@/components/notifications";
+import AuthLayout from "@/layouts/auth-layout";
 import { ReactQueryDevtools, TanStackRouterDevtools } from "@/lib/dev-tools";
 import { siteConfig } from "@/lib/site-config";
 import { IndexPage } from "@/pages/index";
@@ -81,15 +82,14 @@ const appRoute = createRootRoute({
 const authLayout = createRoute({
   getParentRoute: () => appRoute,
   id: "auth-layout",
-  // component: AuthLayout,
-  //empty layer
-  component: () => {
-    return (
-      <div className="p-8">
-        <Outlet />
-      </div>
-    );
-  },
+  component: AuthLayout,
+  // component: () => {
+  //   return (
+  //     <div className="p-8">
+  //       <Outlet />
+  //     </div>
+  //   );
+  // },
 });
 
 const dashboardRoute = createRoute({
