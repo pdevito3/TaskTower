@@ -21,6 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useNavigate } from "@tanstack/react-router";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -42,6 +43,7 @@ export function JobsWorklist<TData, TValue>({
   });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
+  const navigate = useNavigate();
   const table = useReactTable({
     data,
     columns,
@@ -102,8 +104,15 @@ export function JobsWorklist<TData, TValue>({
                     <TableRow
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
-                      onRowClick={() => alert("row clicked")}
                       className="group"
+                      onRowClick={() => {
+                        navigate({
+                          to: `/jobs/${row.getValue("id")}`,
+                          params: {
+                            jobId: row.getValue("id"),
+                          },
+                        });
+                      }}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
