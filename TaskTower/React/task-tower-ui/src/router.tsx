@@ -9,6 +9,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  redirect,
 } from "@tanstack/react-router";
 import { Helmet } from "react-helmet";
 import { z } from "zod";
@@ -49,6 +50,16 @@ const appRoute = createRootRoute({
         </div>
       </>
     );
+  },
+});
+
+const redirectIndexRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/",
+  loader: () => {
+    throw redirect({
+      to: "/tasktower",
+    });
   },
 });
 
@@ -95,6 +106,7 @@ const jobRoute = createRoute({
 });
 
 const routeTree = appRoute.addChildren([
+  redirectIndexRoute,
   authLayout.addChildren([
     dashboardRoute,
     jobsRoute.addChildren([jobWorklistRoute, jobRoute]),
