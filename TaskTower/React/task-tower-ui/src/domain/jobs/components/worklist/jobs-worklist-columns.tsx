@@ -57,7 +57,7 @@ export const createColumns = (): Columns[] => [
     header: ({ column }) => (
       <DataTableColumnHeader
         column={column}
-        title="Next Run At"
+        title="Next Run In"
         canSort={true}
       />
     ),
@@ -80,7 +80,7 @@ export const createColumns = (): Columns[] => [
   {
     accessorKey: "ranAt",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Ran At" canSort={true} />
+      <DataTableColumnHeader column={column} title="Ran" canSort={true} />
     ),
     cell: ({ row }) => {
       const ranAt = row.getValue("ranAt") as string;

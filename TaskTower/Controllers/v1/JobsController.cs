@@ -23,9 +23,8 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
         return Ok(jobs);
     }
     
-    // get paginated
     [HttpGet("paginated")]
-    // [ApiExplorerSettings(IgnoreApi = true)]
+    [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<IActionResult> GetPaginatedJobs(int? page, int? pageSize, CancellationToken cancellationToken)
     {
         page ??= 1;

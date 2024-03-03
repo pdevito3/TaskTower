@@ -1,5 +1,6 @@
 import { Notification } from "@/components/notifications";
 import AuthLayout from "@/layouts/auth-layout";
+import { ReactQueryDevtools, TanStackRouterDevtools } from "@/lib/dev-tools";
 import { siteConfig } from "@/lib/site-config";
 import { IndexPage } from "@/pages/index";
 import { JobsWorklistPage } from "@/pages/jobs";
@@ -9,7 +10,6 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
 } from "@tanstack/react-router";
 import { Helmet } from "react-helmet";
 import { z } from "zod";
@@ -47,21 +47,48 @@ const appRoute = createRootRoute({
         <div className="h-full min-h-screen font-sans antialiased scroll-smooth debug-screens [font-feature-settings:'ss01'] ">
           <Outlet />
           <Notification />
+          <div className="hidden md:block">
+            <TanStackRouterDevtools
+            // position="top-right"
+            // toggleButtonProps={{
+            //   className: "mr-20",
+            // }}
+            />
+            <ReactQueryDevtools
+            // buttonPosition="top-right"
+            />
+          </div>
+          <div className="block md:hidden">
+            <TanStackRouterDevtools
+            // position="bottom-left"
+            // toggleButtonProps={{
+            //   style: {
+            //     // marginLeft: "5rem",
+            //     marginBottom: "2rem",
+            //   },
+            // }}
+            />
+            <div className="mb-6 ml-24">
+              <ReactQueryDevtools
+              // buttonPosition="bottom-left"
+              />
+            </div>
+          </div>
         </div>
       </>
     );
   },
 });
 
-const redirectIndexRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: "/",
-  loader: () => {
-    throw redirect({
-      to: "/tasktower",
-    });
-  },
-});
+// const redirectIndexRoute = createRoute({
+//   getParentRoute: () => appRoute,
+//   path: "/",
+//   loader: () => {
+//     throw redirect({
+//       to: "/tasktower",
+//     });
+//   },
+// });
 
 const authLayout = createRoute({
   getParentRoute: () => appRoute,
@@ -106,7 +133,6 @@ const jobRoute = createRoute({
 });
 
 const routeTree = appRoute.addChildren([
-  redirectIndexRoute,
   authLayout.addChildren([
     dashboardRoute,
     jobsRoute.addChildren([jobWorklistRoute, jobRoute]),

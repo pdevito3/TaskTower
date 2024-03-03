@@ -1,7 +1,7 @@
 import { JobsWorklist } from "@/domain/jobs/components/worklist/jobs-worklist";
 import { createColumns } from "@/domain/jobs/components/worklist/jobs-worklist-columns";
 import { Job } from "@/domain/jobs/types";
-import { getEnv } from "@/utils";
+import { getEnv, isStandaloneEnv } from "@/utils";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 
@@ -23,7 +23,7 @@ function useJobs() {
     queryFn: async () =>
       axios
         .get(
-          getEnv() === "Standalone"
+          isStandaloneEnv()
             ? "http://localhost:5130/api/v1/jobs/paginated"
             : "/api/v1/jobs/paginated"
         )

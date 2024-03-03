@@ -6,6 +6,10 @@ export function getEnv() {
   return env === "{{ASPNETCORE_ENVIRONMENT}}" ? "Standalone" : env;
 }
 
+export function isStandaloneEnv() {
+  return getEnv() === "Standalone";
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
