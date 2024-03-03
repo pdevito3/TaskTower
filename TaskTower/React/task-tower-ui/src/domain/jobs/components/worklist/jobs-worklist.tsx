@@ -88,7 +88,15 @@ export function JobsWorklist<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <div className="border rounded-md">
+      <div className="border rounded-md overflow-hidden">
+        <PaginationControls
+          entityPlural={"Jobs"}
+          pageNumber={pageNumber}
+          apiPagination={pagination}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          setPageNumber={setPageNumber}
+        />
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -159,14 +167,6 @@ export function JobsWorklist<TData, TValue>({
             )}
           </TableBody>
         </Table>
-        <PaginationControls
-          entityPlural={"Jobs"}
-          pageNumber={pageNumber}
-          apiPagination={pagination}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          setPageNumber={setPageNumber}
-        />
       </div>
     </div>
   );
@@ -197,7 +197,7 @@ function SkeletonRows<TData, TValue>(
               >
                 <div
                   key={`row${cellIndex}col${rowIndex}`}
-                  className="w-3/4 h-2 rounded-full bg-zinc-800"
+                  className="w-3/4 h-2 rounded-full bg-zinc-200 animate-pulse"
                 />
               </TableCell>
             )

@@ -6,36 +6,6 @@ import { SortingState } from "@tanstack/react-table";
 import axios, { AxiosResponse } from "axios";
 import queryString from "query-string";
 
-// export function useJobs(hasArtificialDelay = false, delayInMs = 1000) {
-//   return useQuery({
-//     queryKey: ["jobs"],
-//     queryFn: async () => {
-//       const url = isStandaloneEnv()
-//         ? "http://localhost:5130/api/v1/jobs/paginated"
-//         : "/api/v1/jobs/paginated";
-
-//       const delayPromise = new Promise((resolve) =>
-//         setTimeout(resolve, hasArtificialDelay ? delayInMs : 0)
-//       );
-
-//       const apiCallPromise = axios.get(url).then((response: AxiosResponse) => {
-//         const jobs: Job[] = response.data;
-//         const pagination: Pagination = JSON.parse(
-//           response.headers["x-pagination"] ?? "{}"
-//         );
-
-//         return {
-//           data: jobs,
-//           pagination,
-//         } as PagedResponse<Job>;
-//       });
-
-//       const [result] = await Promise.all([apiCallPromise, delayPromise]);
-//       return result;
-//     },
-//   });
-// }
-
 interface DelayProps {
   hasArtificialDelay?: boolean;
   delayInMs?: number;
@@ -76,7 +46,7 @@ const getJobs = async ({
 interface JobsListHookProps extends DelayProps {
   pageNumber?: number;
   pageSize?: number;
-  filters?: Record<string, any>;
+  filters?: string;
   sortOrder?: SortingState;
 }
 

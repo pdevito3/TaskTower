@@ -26,7 +26,7 @@ export function JobsWorklistPage() {
 
 function Jobs() {
   const { sorting, pageSize, pageNumber, queryKit } = useJobsTableStore();
-  const { data: jobs } = useJobs({
+  const { data: jobs, isLoading } = useJobs({
     sortOrder: sorting,
     pageSize,
     pageNumber,
@@ -40,7 +40,7 @@ function Jobs() {
       <JobsWorklist
         columns={columns}
         data={jobs?.data ?? []}
-        isLoading={false}
+        isLoading={isLoading}
         pagination={jobs?.pagination}
       />
     </>
