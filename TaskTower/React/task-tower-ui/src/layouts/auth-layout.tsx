@@ -3,8 +3,9 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 import { AllRoutesPaths } from "@/router";
 
 import { cn } from "@/utils";
+import { BriefcaseIcon } from "@heroicons/react/24/outline";
 import { Link, Outlet } from "@tanstack/react-router";
-import { LayoutDashboard, PackageOpen } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 
 type NavType = {
   name: string;
@@ -14,7 +15,11 @@ type NavType = {
 
 const navigation = [
   { name: "Dashboard", href: "/tasktower", icon: LayoutDashboard },
-  { name: "Jobs", href: "/tasktower/jobs", icon: PackageOpen },
+  {
+    name: "Jobs",
+    href: "/tasktower/jobs",
+    icon: BriefcaseIcon,
+  },
 ] as NavType[];
 
 export default function AuthLayout() {

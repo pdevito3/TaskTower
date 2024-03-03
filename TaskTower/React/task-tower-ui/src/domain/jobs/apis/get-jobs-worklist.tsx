@@ -74,6 +74,8 @@ export const useJobs = ({
         hasArtificialDelay,
         delayInMs,
       }),
+    gcTime: 0,
+    staleTime: 0,
   });
 };
 

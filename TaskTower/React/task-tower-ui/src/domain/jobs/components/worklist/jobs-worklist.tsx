@@ -97,6 +97,7 @@ export function JobsWorklist<TData, TValue>({
           setPageSize={setPageSize}
           setPageNumber={setPageNumber}
         />
+        <div className="pt-2" />
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
