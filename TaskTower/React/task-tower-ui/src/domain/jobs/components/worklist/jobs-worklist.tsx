@@ -89,14 +89,18 @@ export function JobsWorklist<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="border rounded-md overflow-hidden">
-        <PaginationControls
-          entityPlural={"Jobs"}
-          pageNumber={pageNumber}
-          apiPagination={pagination}
-          pageSize={pageSize}
-          setPageSize={setPageSize}
-          setPageNumber={setPageNumber}
-        />
+        <div className="flex justify-between items-center">
+          <div className="px-3"></div>
+          <PaginationControls
+            entityPlural={"Jobs"}
+            pageNumber={pageNumber}
+            apiPagination={pagination}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            setPageNumber={setPageNumber}
+            orientation="right"
+          />
+        </div>
         <div className="pt-2" />
         <Table>
           <TableHeader>

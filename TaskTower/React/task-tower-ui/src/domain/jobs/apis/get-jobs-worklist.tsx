@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { SortingState } from "@tanstack/react-table";
 import axios, { AxiosResponse } from "axios";
 import queryString from "query-string";
+import { JobKeys } from "./job.keys";
 
 interface DelayProps {
   hasArtificialDelay?: boolean;
@@ -67,7 +68,7 @@ export const useJobs = ({
   const hasArtificialDelay = delayInMs > 0;
 
   return useQuery({
-    queryKey: ["jobs", queryParams],
+    queryKey: JobKeys.list(queryParams),
     queryFn: () =>
       getJobs({
         queryString: queryParams,

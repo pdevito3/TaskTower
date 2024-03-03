@@ -23,6 +23,7 @@ interface PaginationControlsProps {
   setPageSize: (size: number) => void;
   setPageNumber: (page: number) => void;
   className?: string;
+  orientation?: "between" | "left" | "right";
 }
 
 const PageSizeOptions = [10, 20, 50, 100, 1000, 2000, 5000] as const;
@@ -35,6 +36,7 @@ export function PaginationControls({
   setPageSize,
   setPageNumber,
   className,
+  orientation = "between",
 }: PaginationControlsProps) {
   const [totalPages, setTotalPages] = useState(apiPagination?.totalPages);
   const pageInfo = `${pageNumber} ${
@@ -49,12 +51,20 @@ export function PaginationControls({
   return (
     <div
       className={cn(
-        "flex items-center justify-between px-3 py-2 bg-white dark:bg-slate-700 sm:rounded-b-lg",
+        "flex items-center px-3 py-2 bg-white dark:bg-slate-700 sm:rounded-b-lg",
+        orientation === "left" && "justify-start",
+        orientation === "right" && "justify-end",
+        orientation === "between" && "justify-between",
         className
       )}
       aria-label={`Table navigation for ${entityPlural} table`}
     >
-      <div className="flex items-center flex-1 space-x-5">
+      <div
+        className={cn(
+          "flex items-center space-x-5",
+          orientation === "between" && "flex-1"
+        )}
+      >
         <span className="flex text-sm font-normal text-slate-500 dark:text-slate-400 min-w-[4rem]">
           <div>Page</div>
           <span className="pl-1 font-semibold text-slate-900 dark:text-white">
@@ -167,41 +177,4 @@ function PaginationCombobox({
       </DropdownMenu>
     </Dropdown>
   );
-
-  //         role="combobox"
-  //         aria-expanded={open}
-  //         className="w-[150px] justify-between"
-  //       >
-  //         {value
-  //           ? pageSizes.find((pageSize) => pageSize.value === value)?.label
-  //           : "Select page size..."}
-  //         <ChevronsUpDown className="w-4 h-4 ml-2 opacity-50 shrink-0" />
-  //       </Button>
-  //     </PopoverTrigger>
-  //     <PopoverContent className="w-[150px] p-0">
-  //       <div className=""></div>
-  //       {/* <Command>
-  //         <CommandGroup>
-  //           {pageSizes.map((pageSize) => (
-  //             <CommandItem
-  //               key={pageSize.value}
-  //               onSelect={() => {
-  //                 onValueChange(pageSize.value === value ? "" : pageSize.value);
-  //                 setOpen(false);
-  //               }}
-  //             >
-  //               <Check
-  //                 className={cn(
-  //                   "mr-2 h-4 w-4",
-  //                   value === pageSize.value ? "opacity-100" : "opacity-0"
-  //                 )}
-  //               />
-  //               {pageSize.label}
-  //             </CommandItem>
-  //           ))}
-  //         </CommandGroup>
-  //       </Command> */}
-  //     </PopoverContent>
-  //   </Popover>
-  // );
 }
