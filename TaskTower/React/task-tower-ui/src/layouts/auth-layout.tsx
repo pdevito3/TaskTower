@@ -81,9 +81,9 @@ function DesktopMenu() {
                     <Link
                       to={item.href}
                       className={cn(
-                        "text-secondary-foreground hover:text-primary/80 hover:bg-gray-10 border-transparent border-2 hover:border-gray-200",
+                        "border-transparent border-2 hover:text-emerald-400",
                         "group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold",
-                        " data-[status=active]:border-emerald-500 data-[status=active]:text-emerald-500 data-[status=active]:hover:bg-zinc-100/50"
+                        " data-[status=active]:bg-gray-200/80 data-[status=active]:text-emerald-500 data-[status=active]:hover:bg-zinc-100/50"
                       )}
                       // className={cn(
                       //   "text-secondary-foreground hover:text-primary/80 hover:bg-gray-50 hover:border-2 hover:border-gray-100",

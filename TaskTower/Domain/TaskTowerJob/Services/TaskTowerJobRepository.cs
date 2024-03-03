@@ -5,15 +5,16 @@ using Dapper;
 using Database;
 using Microsoft.Extensions.Options;
 using Npgsql;
+using Resources;
 
 public interface ITaskTowerJobRepository
 {
     Task<IEnumerable<TaskTowerJob>> GetJobs(CancellationToken cancellationToken = default);
-    Task<IEnumerable<TaskTowerJob>> GetPaginatedJobs(int page, int pageSize, CancellationToken cancellationToken = default);
+    Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int page, int pageSize, CancellationToken cancellationToken = default);
     Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default);
 }
 
-public class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
+internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
 {
     public async Task<IEnumerable<TaskTowerJob>> GetJobs(CancellationToken cancellationToken = default)
     {
@@ -41,11 +42,11 @@ FROM {MigrationConfig.SchemaName}.jobs", cancellationToken);
         
         return jobs;
     }
-    public async Task<IEnumerable<TaskTowerJob>> GetPaginatedJobs(int page, int pageSize, CancellationToken cancellationToken = default)
+    public async Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int pageNumber, int pageSize, CancellationToken cancellationToken = default)
     {
         await using var conn = new NpgsqlConnection(options.Value.ConnectionString);
         await conn.OpenAsync(cancellationToken);
-        var offset = (page - 1) * pageSize;
+        var offset = (pageNumber - 1) * pageSize;
         
         var jobs = await conn.QueryAsync<TaskTowerJob>(@$"
 SELECT
@@ -65,12 +66,17 @@ SELECT
     context_parameters as ContextParameters,
     job_name as JobName 
 FROM {MigrationConfig.SchemaName}.jobs
-ORDER BY created_at
+ORDER BY created_at desc
 OFFSET @Offset ROWS
 FETCH NEXT @PageSize ROWS ONLY", 
             new { Offset = offset, PageSize = pageSize });
         
-        return jobs;
+        var totalJobCount = await conn.ExecuteScalarAsync<int>(@$"
+SELECT COUNT(*)
+FROM {MigrationConfig.SchemaName}.jobs", cancellationToken);
+        
+        var pagedList = new PagedList<TaskTowerJob>(jobs.ToList(), totalJobCount, pageNumber, pageSize);
+        return pagedList;
     }
     
     public async Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default)

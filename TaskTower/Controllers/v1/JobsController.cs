@@ -1,5 +1,6 @@
 namespace TaskTower.Controllers.v1;
 
+using System.Text.Json;
 using Domain.TaskTowerJob;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Configurations;
 using Dapper;
 using Database;
 using Domain.TaskTowerJob.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -25,12 +27,12 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
     
     [HttpGet("paginated")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> GetPaginatedJobs(int? page, int? pageSize, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaginatedJobs(int? pageNumber, int? pageSize, CancellationToken cancellationToken)
     {
-        page ??= 1;
+        pageNumber ??= 1;
         pageSize ??= 10;
-        var jobs = await taskTowerJobRepository.GetPaginatedJobs((int)page, (int)pageSize, cancellationToken);
-        var dto = jobs.Select(x => new
+        var queryResponse = await taskTowerJobRepository.GetPaginatedJobs((int)pageNumber, (int)pageSize, cancellationToken);
+        var dto = queryResponse.Select(x => new
         {
             Id = x.Id,
             Status = x.Status.Value,
@@ -47,6 +49,23 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
             Queue = x.Queue,
             RanAt = x.RanAt,
         });
+        
+        var paginationMetadata = new
+        {
+            totalCount = queryResponse.TotalCount,
+            pageSize = queryResponse.PageSize,
+            currentPageSize = queryResponse.CurrentPageSize,
+            currentStartIndex = queryResponse.CurrentStartIndex,
+            currentEndIndex = queryResponse.CurrentEndIndex,
+            pageNumber = queryResponse.PageNumber,
+            totalPages = queryResponse.TotalPages,
+            hasPrevious = queryResponse.HasPrevious,
+            hasNext = queryResponse.HasNext
+        };
+        
+        Response.Headers.Append("X-Pagination",
+            JsonSerializer.Serialize(paginationMetadata));
+        
         return Ok(dto);
     }
 }

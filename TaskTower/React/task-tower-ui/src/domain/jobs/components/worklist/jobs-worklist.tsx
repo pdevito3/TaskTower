@@ -13,6 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { useState } from "react";
 
+import { PaginationControls } from "@/components/data-table/pagination";
 import {
   Table,
   TableBody,
@@ -21,11 +22,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useJobsTableStore } from "@/domain/jobs/components/worklist/jobs-worklist.store";
+import { Pagination } from "@/types/apis";
 import { useNavigate } from "@tanstack/react-router";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  pagination?: Pagination;
   isLoading?: boolean;
   skeletonRowCount?: number;
 }
@@ -33,6 +37,7 @@ interface DataTableProps<TData, TValue> {
 export function JobsWorklist<TData, TValue>({
   columns,
   data,
+  pagination,
   isLoading = false,
   skeletonRowCount = 3,
 }: DataTableProps<TData, TValue>) {
@@ -43,18 +48,34 @@ export function JobsWorklist<TData, TValue>({
   });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
+  const {
+    sorting,
+    setSorting,
+    pageSize,
+    setPageSize,
+    pageNumber,
+    setPageNumber,
+  } = useJobsTableStore();
+
   const navigate = useNavigate();
   const table = useReactTable({
     data,
     columns,
     state: {
+      sorting,
       columnVisibility,
       rowSelection,
       columnFilters,
+      pagination: {
+        pageSize: pageSize ?? 10,
+        pageIndex: pageNumber ?? 1,
+      },
     },
-    manualSorting: false,
-    enableRowSelection: false,
+    manualPagination: true,
+    manualSorting: true,
+    enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
@@ -138,6 +159,14 @@ export function JobsWorklist<TData, TValue>({
             )}
           </TableBody>
         </Table>
+        <PaginationControls
+          entityPlural={"Jobs"}
+          pageNumber={pageNumber}
+          apiPagination={pagination}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          setPageNumber={setPageNumber}
+        />
       </div>
     </div>
   );
