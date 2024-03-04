@@ -38,7 +38,12 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
         if (!string.IsNullOrWhiteSpace(filterText))
         {
             sqlWhereBuilder.Append(sqlWhereBuilder.Length > 0 ? "AND " : "WHERE ");
-            sqlWhereBuilder.Append("(LOWER(job_name) ILIKE(LOWER( @FilterText)) OR LOWER(payload::text) ILIKE LOWER(@FilterText) OR LOWER(id::text) ILIKE LOWER(@FilterText)) ");
+            sqlWhereBuilder.Append("""
+                                   (LOWER(job_name) ILIKE(LOWER( @FilterText)) 
+                                   OR LOWER(payload::text) ILIKE LOWER(@FilterText) 
+                                   OR LOWER(queue) ILIKE LOWER(@FilterText) 
+                                   OR LOWER(id::text) ILIKE LOWER(@FilterText)) 
+                                   """);
             parameters.Add("FilterText", $"%{filterText}%");
         }
 
