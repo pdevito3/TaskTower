@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Configurations;
 using Dapper;
 using Database;
+using Domain.TaskTowerJob.Dtos;
 using Domain.TaskTowerJob.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -16,22 +17,15 @@ using Npgsql;
 [Route("api/v1/jobs")]
 public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : ControllerBase
 {
-
-    [HttpGet]
-    [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> GetJobs(CancellationToken cancellationToken)
-    {
-        var jobs = await taskTowerJobRepository.GetJobs(cancellationToken);
-        return Ok(jobs);
-    }
-    
     [HttpGet("paginated")]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task<IActionResult> GetPaginatedJobs(int? pageNumber, int? pageSize, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPaginatedJobs([FromQuery] JobParametersDto jobParametersDto, CancellationToken cancellationToken)
     {
-        pageNumber ??= 1;
-        pageSize ??= 10;
-        var queryResponse = await taskTowerJobRepository.GetPaginatedJobs((int)pageNumber, (int)pageSize, cancellationToken);
+        var queryResponse = await taskTowerJobRepository.GetPaginatedJobs(jobParametersDto.PageNumber, 
+            jobParametersDto.PageSize, 
+            jobParametersDto.StatusFilter,
+            jobParametersDto.FilterText,
+            cancellationToken);
         var dto = queryResponse.Select(x => new
         {
             Id = x.Id,

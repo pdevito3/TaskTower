@@ -25,13 +25,16 @@ export function JobsWorklistPage() {
 }
 
 function Jobs() {
-  const { sorting, pageSize, pageNumber, queryKit } = useJobsTableStore();
+  const { sorting, pageSize, pageNumber, queryKit, status } =
+    useJobsTableStore();
   const { data: jobs, isLoading } = useJobs({
     sortOrder: sorting,
     pageSize,
     pageNumber,
-    filters: queryKit.filterValue(),
+    // filters: queryKit.filterValue(),
     delayInMs: 450,
+    status,
+    filterText: queryKit.filterText(),
   });
 
   const columns = createColumns();

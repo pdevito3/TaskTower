@@ -25,6 +25,7 @@ import {
 import { useJobsTableStore } from "@/domain/jobs/components/worklist/jobs-worklist.store";
 import { Pagination } from "@/types/apis";
 import { useNavigate } from "@tanstack/react-router";
+import { JobsWorklistToolbar } from "./worklist-toolbar";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -93,7 +94,9 @@ export function JobsWorklist<TData, TValue>({
     <div className="space-y-4">
       <div className="border rounded-md overflow-hidden">
         <div className="flex justify-between items-center">
-          <div className="px-3"></div>
+          <div className="px-3">
+            <JobsWorklistToolbar />
+          </div>
           <PaginationControls
             entityPlural={"Jobs"}
             pageNumber={pageNumber}

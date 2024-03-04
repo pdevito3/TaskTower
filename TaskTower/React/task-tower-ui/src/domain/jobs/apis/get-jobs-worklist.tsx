@@ -47,21 +47,27 @@ const getJobs = async ({
 interface JobsListHookProps extends DelayProps {
   pageNumber?: number;
   pageSize?: number;
-  filters?: string;
   sortOrder?: SortingState;
+  status?: string[];
+  filterText?: string;
 }
 
 export const useJobs = ({
   pageNumber = 1,
   pageSize = 10,
-  filters,
   sortOrder,
   delayInMs = 0,
+  status,
+  filterText,
 }: JobsListHookProps = {}) => {
   const queryParams = queryString.stringify({
     pageNumber,
     pageSize,
-    filters,
+    filterText: filterText && filterText.length > 0 ? filterText : undefined,
+    filterStatuses:
+      status && status.length > 0
+        ? status?.map((status) => `StatusFilter=${status}`).join("&")
+        : undefined,
     sortOrder: generateSieveSortOrder(sortOrder),
   });
 

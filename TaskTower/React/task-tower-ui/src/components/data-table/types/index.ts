@@ -12,5 +12,6 @@ export interface PaginatedTableStore {
   resetFilters: () => void;
   queryKit: {
     filterValue: () => string;
+    filterText: () => string;
   };
 }

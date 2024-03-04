@@ -37,21 +37,30 @@ export const useJobsTableStore = create<JobsTableStore>((set, get) => ({
   filterInput: null,
   setFilterInput: (f) => set({ filterInput: f }),
   isFiltered: {
-    result: () => get().status.length > 0 || get().filterInput !== null,
+    result: () =>
+      get().status.length > 0 || (get().filterInput?.length ?? 0) > 0,
   },
   resetFilters: () => set({ status: [], filterInput: null }),
   queryKit: {
+    // filterValue: () => {
+    //   const statusFilter = get()
+    //     .status.map((status) => `status == "${status}"`)
+    //     .join(" || ");
+    //   const jobIdFilter = get().filterInput
+    //     ? `jobId @=* "${get().filterInput}"`
+    //     : "";
+    //   if (statusFilter && jobIdFilter) {
+    //     return `${statusFilter} && ${jobIdFilter}`;
+    //   }
+    //   if (statusFilter.length > 0) return statusFilter;
+    //   if (jobIdFilter.length > 0) return jobIdFilter;
+    //   return "";
+    // },
     filterValue: () => {
-      const statusFilter = get()
-        .status.map((status) => `status == "${status}"`)
-        .join(" || ");
-      const jobIdFilter = get().filterInput
-        ? `jobId @=* "${get().filterInput}"`
-        : "";
-      if (statusFilter && jobIdFilter) {
-        return `${statusFilter} && ${jobIdFilter}`;
-      }
-      if (statusFilter.length > 0) return statusFilter;
+      return "";
+    },
+    filterText: () => {
+      const jobIdFilter = get().filterInput ? `${get().filterInput}` : "";
       if (jobIdFilter.length > 0) return jobIdFilter;
       return "";
     },
