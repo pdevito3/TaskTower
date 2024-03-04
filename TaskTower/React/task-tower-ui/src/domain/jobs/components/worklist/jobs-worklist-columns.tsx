@@ -10,6 +10,28 @@ export const createColumns = (): Columns[] => [
     accessorKey: "id",
     header: "Id",
   },
+  {
+    accessorKey: "job-identification",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Job" canSort={false} />
+    ),
+    cell: ({ row }) => {
+      const id = row.getValue("id") as string;
+      const jobName = row.getValue("jobName") as string;
+      return (
+        // <p>
+        //   <span className="text-violet-500">{id}</span> - {jobName}
+        // </p>
+
+        <div className="flex space-x-3">
+          <div className="inline-flex flex-col">
+            <p className="block ">{jobName}</p>
+            <p className="block text-xs text-slate-700">{id}</p>
+          </div>
+        </div>
+      );
+    },
+  },
   // {
   //   accessorKey: "status",
   //   header: "Status",
@@ -51,6 +73,33 @@ export const createColumns = (): Columns[] => [
   {
     accessorKey: "maxRetries",
     header: "Max Retries",
+  },
+  {
+    accessorKey: "retriesRemaining",
+    header: ({ column }) => (
+      <DataTableColumnHeader
+        column={column}
+        title="Retries Remaining"
+        canSort={false}
+      />
+    ),
+    cell: ({ row }) => {
+      const maxRetries = row.getValue("maxRetries") as number;
+      const retries = row.getValue("retries") as number;
+      const status = row.getValue("status") as string;
+
+      if (status === "Completed") {
+        return <p>—</p>;
+      }
+
+      const retriesRemaining = maxRetries - retries;
+
+      return (
+        <p>
+          {retriesRemaining >= 0 ? `${retriesRemaining}/${maxRetries}` : "—"}
+        </p>
+      );
+    },
   },
   {
     accessorKey: "runAfter",

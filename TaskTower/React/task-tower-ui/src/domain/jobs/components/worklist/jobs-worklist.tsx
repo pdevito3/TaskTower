@@ -44,7 +44,10 @@ export function JobsWorklist<TData, TValue>({
   const [rowSelection, setRowSelection] = useState({});
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     // control visibility of columns
-    // id: false,
+    id: false,
+    maxRetries: false,
+    retries: false,
+    jobName: false,
   });
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
