@@ -24,6 +24,7 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
         var queryResponse = await taskTowerJobRepository.GetPaginatedJobs(jobParametersDto.PageNumber, 
             jobParametersDto.PageSize, 
             jobParametersDto.StatusFilter,
+            jobParametersDto.QueueFilter,
             jobParametersDto.FilterText,
             cancellationToken);
         var dto = queryResponse.Select(x => new

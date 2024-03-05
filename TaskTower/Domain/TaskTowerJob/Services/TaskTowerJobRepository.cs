@@ -10,8 +10,9 @@ using Resources;
 
 public interface ITaskTowerJobRepository
 {
-    Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int page, int pageSize, 
+    Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int page, int pageSize,
         string[] statuses,
+        string[] queueFilter,
         string? filterText,
         CancellationToken cancellationToken = default);
     Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default);
@@ -19,11 +20,12 @@ public interface ITaskTowerJobRepository
 
 internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
 {
-    public async Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int pageNumber, 
-    int pageSize,
-    string[] statuses,
-    string? filterText,
-    CancellationToken cancellationToken = default)
+    public async Task<PagedList<TaskTowerJob>> GetPaginatedJobs(int pageNumber,
+        int pageSize,
+        string[] statuses,
+        string[] queueFilter,
+        string? filterText,
+        CancellationToken cancellationToken = default)
     {
         var sqlWhereBuilder = new StringBuilder();
         var parameters = new DynamicParameters();
@@ -33,6 +35,14 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
             var lowerStatuses = statuses.Select(s => s.ToLower()).ToArray();
             sqlWhereBuilder.Append("WHERE LOWER(status) = ANY (@LowerStatuses) ");
             parameters.Add("LowerStatuses", lowerStatuses);
+        }
+        
+        if (queueFilter.Length > 0)
+        {
+            var lowerQueueFilter = queueFilter.Select(s => s.ToLower()).ToArray();
+            sqlWhereBuilder.Append(sqlWhereBuilder.Length > 0 ? "AND " : "WHERE ");
+            sqlWhereBuilder.Append("LOWER(queue) = ANY (@LowerQueueFilter) ");
+            parameters.Add("LowerQueueFilter", lowerQueueFilter);
         }
 
         if (!string.IsNullOrWhiteSpace(filterText))

@@ -25,7 +25,7 @@ export function JobsWorklistPage() {
 }
 
 function Jobs() {
-  const { sorting, pageSize, pageNumber, queryKit, status } =
+  const { sorting, pageSize, pageNumber, queryKit, status, queue } =
     useJobsTableStore();
   const { data: jobs, isLoading } = useJobs({
     sortOrder: sorting,
@@ -34,6 +34,7 @@ function Jobs() {
     // filters: queryKit.filterValue(),
     delayInMs: 450,
     status,
+    queue,
     filterText: queryKit.filterText(),
   });
 

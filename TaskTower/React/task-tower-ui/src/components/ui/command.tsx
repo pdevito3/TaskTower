@@ -22,7 +22,10 @@ const Command = React.forwardRef<
 ));
 Command.displayName = CommandPrimitive.displayName;
 
-interface CommandModalProps extends ModalProps {}
+// interface CommandModalProps extends ModalProps {}
+interface CommandModalProps {
+  children: React.ReactNode;
+}
 
 const CommandModal = ({ children, ...props }: CommandModalProps) => {
   return (

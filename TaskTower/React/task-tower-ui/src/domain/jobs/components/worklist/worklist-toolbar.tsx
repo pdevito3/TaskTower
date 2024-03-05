@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { JobStatus } from "@/domain/jobs/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEffect, useState } from "react";
+import { QueueFilterControl } from "./job-queue-filter-control";
 import { FilterControl } from "./job-status-filter-control";
 import { useJobsTableStore } from "./jobs-worklist.store";
 
@@ -35,6 +36,7 @@ export function JobsWorklistToolbar() {
             className="w-48 lg:w-54"
           />
           <FilterControl title="Status" options={statuses} />
+          <QueueFilterControl title="Queue" options={queues} />
           {isFiltered.result() && (
             <Button
               variant="ghost"
@@ -210,3 +212,18 @@ const statuses = [
     },
   },
 ] as { value: JobStatus; label: string; icon: React.ElementType }[];
+
+const queues = [
+  {
+    value: "low",
+    label: "low",
+  },
+  {
+    value: "default",
+    label: "default",
+  },
+  {
+    value: "critical",
+    label: "critical",
+  },
+];

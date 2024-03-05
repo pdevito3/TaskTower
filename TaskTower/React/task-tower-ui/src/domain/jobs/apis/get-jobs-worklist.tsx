@@ -50,6 +50,7 @@ interface JobsListHookProps extends DelayProps {
   sortOrder?: SortingState;
   status?: string[];
   filterText?: string;
+  queue?: string[];
 }
 
 export const useJobs = ({
@@ -59,6 +60,7 @@ export const useJobs = ({
   delayInMs = 0,
   status,
   filterText,
+  queue,
 }: JobsListHookProps = {}) => {
   const queryParams = queryString.stringify({
     pageNumber,
@@ -68,6 +70,11 @@ export const useJobs = ({
       status && status.length > 0
         ? // ? status?.map((status) => `StatusFilter=${status}`).join("&")
           status
+        : undefined,
+    queueFilter:
+      queue && queue.length > 0
+        ? // ? queue?.map((queue) => `StatusFilter=${queue}`).join("&")
+          queue
         : undefined,
     sortOrder: generateSieveSortOrder(sortOrder),
   });

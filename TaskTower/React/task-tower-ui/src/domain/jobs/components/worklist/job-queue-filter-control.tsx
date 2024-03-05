@@ -22,13 +22,12 @@ interface FilterControl {
   options: {
     label: string;
     value: string;
-    icon?: React.ElementType;
   }[];
 }
 
-export function FilterControl({ title, options }: FilterControl) {
-  const { addStatus, removeStatus, status, clearStatus } = useJobsTableStore();
-  const selectedValues = new Set(status);
+export function QueueFilterControl({ title, options }: FilterControl) {
+  const { addQueue, removeQueue, queue, clearQueue } = useJobsTableStore();
+  const selectedValues = new Set(queue);
   const [popoverIsOpen, setPopoverIsOpen] = React.useState(false);
 
   return (
@@ -89,10 +88,10 @@ export function FilterControl({ title, options }: FilterControl) {
                     key={option.value}
                     onSelect={() => {
                       if (isSelected) {
-                        removeStatus(option.value);
+                        removeQueue(option.value);
                         selectedValues.delete(option.value);
                       } else {
-                        addStatus(option.value);
+                        addQueue(option.value);
                         selectedValues.add(option.value);
                       }
                     }}
@@ -107,9 +106,6 @@ export function FilterControl({ title, options }: FilterControl) {
                     >
                       <CheckIcon className={cn("h-4 w-4")} />
                     </div>
-                    {option.icon && (
-                      <option.icon className="w-4 h-4 mr-2 text-zinc-800" />
-                    )}
                     <span>{option.label}</span>
                   </CommandItem>
                 );
@@ -121,7 +117,7 @@ export function FilterControl({ title, options }: FilterControl) {
                 <CommandGroup>
                   <CommandItem
                     onSelect={() => {
-                      clearStatus();
+                      clearQueue();
                       setPopoverIsOpen(false);
                     }}
                     className="justify-center text-center"

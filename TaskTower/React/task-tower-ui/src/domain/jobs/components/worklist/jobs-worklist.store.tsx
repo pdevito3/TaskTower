@@ -8,6 +8,10 @@ interface JobsTableStore extends PaginatedTableStore {
   addStatus: (status: string) => void;
   removeStatus: (status: string) => void;
   clearStatus: () => void;
+  queue: string[];
+  addQueue: (queue: string) => void;
+  removeQueue: (queue: string) => void;
+  clearQueue: () => void;
   filterInput: string | null;
   setFilterInput: (f: string | null) => void;
 }
@@ -34,13 +38,23 @@ export const useJobsTableStore = create<JobsTableStore>((set, get) => ({
       status: prevState.status.filter((s) => s !== status),
     })),
   clearStatus: () => set({ status: [] }),
+  queue: [],
+  addQueue: (queue) =>
+    set((prevState) => ({ queue: [...prevState.queue, queue] })),
+  removeQueue: (queue) =>
+    set((prevState) => ({
+      queue: prevState.queue.filter((s) => s !== queue),
+    })),
+  clearQueue: () => set({ queue: [] }),
   filterInput: null,
   setFilterInput: (f) => set({ filterInput: f }),
   isFiltered: {
     result: () =>
-      get().status.length > 0 || (get().filterInput?.length ?? 0) > 0,
+      get().status.length > 0 ||
+      (get().filterInput?.length ?? 0) > 0 ||
+      get().queue.length > 0,
   },
-  resetFilters: () => set({ status: [], filterInput: null }),
+  resetFilters: () => set({ status: [], filterInput: null, queue: [] }),
   queryKit: {
     // filterValue: () => {
     //   const statusFilter = get()

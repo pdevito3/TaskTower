@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using Serilog.Events;
@@ -346,6 +347,25 @@ app.MapPost("/fluent-two-second-delay", async (HttpContext http, IBackgroundJobC
                 x.Handle(new DoAThing.Command("this is a scheduled job")))
             .ToQueue("critical")
             .InSeconds(2);
+
+        return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
+    }
+    catch (Exception ex)
+    {
+        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
+        return Results.Problem("An error occurred while creating the job.");
+    }
+});
+
+app.MapPost("/fluent-dynamic-second-delay", async ([FromQuery]int delayInSeconds, HttpContext http, IBackgroundJobClient client) =>
+{
+    try
+    {
+        var jobId = await client.Schedule<DoAThing>(x => 
+                x.Handle(new DoAThing.Command("this is a scheduled job")))
+            .ToQueue("critical")
+            .InSeconds(delayInSeconds);
 
         return Results.Ok(new { Message = $"Job created with ID: {jobId}" });
     }
