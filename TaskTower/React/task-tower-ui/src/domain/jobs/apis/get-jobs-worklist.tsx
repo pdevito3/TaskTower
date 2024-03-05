@@ -64,9 +64,10 @@ export const useJobs = ({
     pageNumber,
     pageSize,
     filterText: filterText && filterText.length > 0 ? filterText : undefined,
-    filterStatuses:
+    statusFilter:
       status && status.length > 0
-        ? status?.map((status) => `StatusFilter=${status}`).join("&")
+        ? // ? status?.map((status) => `StatusFilter=${status}`).join("&")
+          status
         : undefined,
     sortOrder: generateSieveSortOrder(sortOrder),
   });
