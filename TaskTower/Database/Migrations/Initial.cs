@@ -73,10 +73,12 @@ BEGIN
     
     -- Update status in jobs table, specifying the schema
     UPDATE {schemaName}.jobs
-    SET status = 'Processing'
+    SET status = 'Enqueued'
     WHERE id = NEW.id;
 
     -- Add a job history record for enqueuing, specifying the schema
+    INSERT INTO {schemaName}.run_histories(id, job_id, status, occurred_at)
+    VALUES (gen_random_uuid(), NEW.id, 'Pending', NOW());
     INSERT INTO {schemaName}.run_histories(id, job_id, status, occurred_at)
     VALUES (gen_random_uuid(), NEW.id, 'Enqueued', NOW());
     
