@@ -4,6 +4,7 @@ const JobKeys = {
   list: (queryParams: string) => [...JobKeys.lists(), { queryParams }] as const,
   details: () => [...JobKeys.all, "detail"] as const,
   detail: (accessionId: string) => [...JobKeys.details(), accessionId] as const,
+  queueNames: () => [...JobKeys.all, "queueNames"] as const,
 };
 
 export { JobKeys };

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { JobStatus } from "@/domain/jobs/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEffect, useState } from "react";
+import { useGetQueueNames } from "../../apis/get-queue-names";
 import { QueueFilterControl } from "./job-queue-filter-control";
 import { FilterControl } from "./job-status-filter-control";
 import { useJobsTableStore } from "./jobs-worklist.store";
@@ -21,6 +22,9 @@ export function JobsWorklistToolbar() {
       resetFilters();
     }
   }, [debouncedFilterInput, resetFilters, setFilterInput]);
+
+  const { data } = useGetQueueNames();
+  const queues = data?.map((queue) => ({ label: queue, value: queue })) ?? [];
 
   return (
     <div className="flex-col space-y-3 sm:flex-row sm:flex sm:items-center sm:justify-between sm:flex-1 sm:space-y-0">
@@ -212,18 +216,3 @@ const statuses = [
     },
   },
 ] as { value: JobStatus; label: string; icon: React.ElementType }[];
-
-const queues = [
-  {
-    value: "low",
-    label: "low",
-  },
-  {
-    value: "default",
-    label: "default",
-  },
-  {
-    value: "critical",
-    label: "critical",
-  },
-];

@@ -63,4 +63,12 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
         
         return Ok(dto);
     }
+    
+    [HttpGet("queueNames")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> GetQueueNames()
+    {
+        var queueNames = await taskTowerJobRepository.GetQueueNames();
+        return Ok(queueNames);
+    }
 }

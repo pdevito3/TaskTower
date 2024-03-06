@@ -16,6 +16,7 @@ public interface ITaskTowerJobRepository
         string? filterText,
         CancellationToken cancellationToken = default);
     Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default);
+    Task<List<string>> GetQueueNames(CancellationToken cancellationToken = default);
 }
 
 internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
@@ -154,5 +155,17 @@ VALUES (@Id,
                 ContextParameters = job.RawContextParameters,
                 job.JobName
             });
-    } 
+    }
+    
+    public async Task<List<string>> GetQueueNames(CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(options.Value.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        var queueNames = await conn.QueryAsync<string>(
+            @$"
+SELECT DISTINCT queue
+FROM {MigrationConfig.SchemaName}.jobs
+ORDER BY queue");
+        return queueNames.ToList();
+    }
 }
