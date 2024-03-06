@@ -220,38 +220,12 @@ public class JobNotificationListener : BackgroundService
         var errorDetails = new ErrorDetails(null, null, null);
         if (job != null)
         {
-            var nowProcessing = DateTimeOffset.UtcNow;
-
-            _logger.LogDebug("Processing job {JobId} from the {Queue} queue with a payload of {Payload} at {Now}", 
-                job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
-
             try
             {
-                // TODO add interceptor span
-                _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
-                var jobType = Type.GetType(job.Type);
-                var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
-                _logger.LogDebug("Found {Count} preprocessing interceptors for Job {JobId}", interceptors.Count, job.Id);
+                serviceProvider = PerformPreprocessing(serviceProvider, job);
+                await MarkAsProcessing(job, conn, tx);
 
-                if (interceptors.Count > 0)
-                {
-                    _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
-                    foreach (var interceptor in interceptors)
-                    {
-                        serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
-                    }
-                }
-                
-                // TODO end span
-                
                 await job.Invoke(serviceProvider);
-                var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
-                {
-                    JobId = job.Id,
-                    Status = JobStatus.Processing(),
-                    OccurredAt = nowProcessing
-                });
-                await AddRunHistory(conn, runHistoryProcessing, tx);
                 
                 var nowDone = DateTimeOffset.UtcNow;
                 await conn.ExecuteAsync(
@@ -276,9 +250,44 @@ public class JobNotificationListener : BackgroundService
             }
             catch (Exception ex)
             {
-                job.MarkAsFailed();
-                await conn.ExecuteAsync(
-                    @$"UPDATE {MigrationConfig.SchemaName}.jobs 
+                errorDetails = await HandleFailure(job, conn, tx, ex);
+            }
+            await tx.CommitAsync(stoppingToken);
+            
+            if (job.Status.IsDead())
+            {
+                ExecuteDeathInterceptors(serviceProvider, job, errorDetails);
+            }
+            
+            _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+        }
+        
+    }
+
+    private void ExecuteDeathInterceptors(IServiceProvider serviceProvider, TaskTowerJob job, ErrorDetails errorDetails)
+    {
+        // TODO add interceptor span
+        _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
+        var jobType = Type.GetType(job.Type);
+        var interceptors = _options.GetInterceptors(jobType, InterceptionStage.Death());
+        _logger.LogDebug("Found {Count} death interceptors for Job {JobId}", interceptors.Count, job.Id);
+
+        if (interceptors.Count > 0)
+        {
+            _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
+            foreach (var interceptor in interceptors)
+            {
+                serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
+            }
+        }
+        // TODO end span
+    }
+
+    private async Task<ErrorDetails> HandleFailure(TaskTowerJob job, NpgsqlConnection conn, NpgsqlTransaction tx, Exception ex)
+    {
+        job.MarkAsFailed();
+        await conn.ExecuteAsync(
+            @$"UPDATE {MigrationConfig.SchemaName}.jobs 
     SET 
         status = @Status, 
         type = @Type, 
@@ -292,71 +301,80 @@ public class JobNotificationListener : BackgroundService
         created_at = @CreatedAt, 
         deadline = @Deadline
     WHERE id = @Id",
-                    new { 
-                        Id = job.Id, 
-                        Status = job.Status.Value, 
-                        Type = job.Type,
-                        Method = job.Method,
-                        ParameterTypes = job.ParameterTypes,
-                        Payload = job.Payload,
-                        Retries = job.Retries,
-                        MaxRetries = job.MaxRetries,
-                        RunAfter = job.RunAfter,
-                        RanAt = job.RanAt,
-                        CreatedAt = job.CreatedAt,
-                        Deadline = job.Deadline
-                    },
-                    transaction: tx
-                );
+            new { 
+                Id = job.Id, 
+                Status = job.Status.Value, 
+                Type = job.Type,
+                Method = job.Method,
+                ParameterTypes = job.ParameterTypes,
+                Payload = job.Payload,
+                Retries = job.Retries,
+                MaxRetries = job.MaxRetries,
+                RunAfter = job.RunAfter,
+                RanAt = job.RanAt,
+                CreatedAt = job.CreatedAt,
+                Deadline = job.Deadline
+            },
+            transaction: tx
+        );
                 
-                await conn.ExecuteAsync(
-                    $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
-                    new { job.Id },
-                    transaction: tx
-                );
+        await conn.ExecuteAsync(
+            $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
+            new { job.Id },
+            transaction: tx
+        );
                 
-                var runHistory = RunHistory.Create(new RunHistoryForCreation()
-                {
-                    JobId = job.Id,
-                    Status = JobStatus.Failed(),
-                    Comment = ex.Message,
-                    Details = ex.StackTrace,
-                    OccurredAt = job.RanAt ?? DateTimeOffset.UtcNow
-                });
-                await AddRunHistory(conn, runHistory, tx);
+        var runHistory = RunHistory.Create(new RunHistoryForCreation()
+        {
+            JobId = job.Id,
+            Status = JobStatus.Failed(),
+            Comment = ex.Message,
+            Details = ex.StackTrace,
+            OccurredAt = job.RanAt ?? DateTimeOffset.UtcNow
+        });
+        await AddRunHistory(conn, runHistory, tx);
                 
-                _logger.LogError("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
+        _logger.LogError("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
                 
-                if (job.Status.IsDead())
-                {
-                    _logger.LogError("Job {JobId} is dead", job.Id);
-                    errorDetails = new ErrorDetails(runHistory.Comment, runHistory.Details, runHistory.OccurredAt);
-                }
-            }
-            await tx.CommitAsync(stoppingToken);
-            
-            if (job.Status.IsDead())
-            {
-                // TODO add interceptor span
-                _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
-                var jobType = Type.GetType(job.Type);
-                var interceptors = _options.GetInterceptors(jobType, InterceptionStage.Death());
-                _logger.LogDebug("Found {Count} death interceptors for Job {JobId}", interceptors.Count, job.Id);
-
-                if (interceptors.Count > 0)
-                {
-                    _logger.LogDebug("Executing death interceptors for Job {JobId}", job.Id);
-                    foreach (var interceptor in interceptors)
-                    {
-                        serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job, errorDetails);
-                    }
-                }
-                // TODO end span
-            }
-            
-            _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+        if (job.Status.IsDead())
+        {
+            _logger.LogError("Job {JobId} is dead", job.Id);
         }
-        
+        return new ErrorDetails(runHistory.Comment, runHistory.Details, runHistory.OccurredAt);
+    }
+
+    private async Task MarkAsProcessing(TaskTowerJob job, NpgsqlConnection conn, NpgsqlTransaction tx)
+    {
+        var nowProcessing = DateTimeOffset.UtcNow;
+        _logger.LogDebug("Processing job {JobId} from the {Queue} queue with a payload of {Payload} at {Now}", 
+            job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
+        var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
+        {
+            JobId = job.Id,
+            Status = JobStatus.Processing(),
+            OccurredAt = nowProcessing
+        });
+        await AddRunHistory(conn, runHistoryProcessing, tx);
+    }
+
+    private IServiceProvider PerformPreprocessing(IServiceProvider serviceProvider, TaskTowerJob job)
+    {
+        // TODO add interceptor span
+        _logger.LogDebug("Checking for preprocessing interceptors for Job {JobId}", job.Id);
+        var jobType = Type.GetType(job.Type);
+        var interceptors = _options.GetInterceptors(jobType, InterceptionStage.PreProcessing());
+        _logger.LogDebug("Found {Count} preprocessing interceptors for Job {JobId}", interceptors.Count, job.Id);
+
+        if (interceptors.Count > 0)
+        {
+            _logger.LogDebug("Executing preprocessing interceptors for Job {JobId}", job.Id);
+            foreach (var interceptor in interceptors)
+            {
+                serviceProvider = ExecuteInterceptor(serviceProvider, interceptor, job);
+            }
+        }
+        // TODO end span
+        return serviceProvider;
     }
 
     private IServiceProvider ExecuteInterceptor(IServiceProvider serviceProvider, Type interceptor, TaskTowerJob job, ErrorDetails? errorDetails = null!)
