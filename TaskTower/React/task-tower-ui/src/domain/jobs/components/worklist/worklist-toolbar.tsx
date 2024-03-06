@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { JobStatus } from "@/domain/jobs/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useEffect, useState } from "react";
+import { useInvalidateJobListQuery } from "../../apis/get-jobs-worklist";
 import { useGetQueueNames } from "../../apis/get-queue-names";
 import { QueueFilterControl } from "./job-queue-filter-control";
 import { FilterControl } from "./job-status-filter-control";
@@ -25,6 +26,8 @@ export function JobsWorklistToolbar() {
 
   const { data } = useGetQueueNames();
   const queues = data?.map((queue) => ({ label: queue, value: queue })) ?? [];
+
+  const invalidateJobListQuery = useInvalidateJobListQuery();
 
   return (
     <div className="flex-col space-y-3 sm:flex-row sm:flex sm:items-center sm:justify-between sm:flex-1 sm:space-y-0">
@@ -70,6 +73,22 @@ export function JobsWorklistToolbar() {
               </div>
             </Button>
           )}
+          <Button variant="secondary" onClick={invalidateJobListQuery}>
+            <p className="sr-only">Refresh</p>
+            {/* https://iconbuddy.app/jam/refresh */}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width={200}
+              height={200}
+              viewBox="-1.5 -2.5 24 24"
+              className="w-5 h-5 text-slate-800"
+            >
+              <path
+                fill="currentColor"
+                d="m17.83 4.194l.42-1.377a1 1 0 1 1 1.913.585l-1.17 3.825a1 1 0 0 1-1.248.664l-3.825-1.17a1 1 0 1 1 .585-1.912l1.672.511A7.381 7.381 0 0 0 3.185 6.584l-.26.633a1 1 0 1 1-1.85-.758l.26-.633A9.381 9.381 0 0 1 17.83 4.194zM2.308 14.807l-.327 1.311a1 1 0 1 1-1.94-.484l.967-3.88a1 1 0 0 1 1.265-.716l3.828.954a1 1 0 0 1-.484 1.941l-1.786-.445a7.384 7.384 0 0 0 13.216-1.792a1 1 0 1 1 1.906.608a9.381 9.381 0 0 1-5.38 5.831a9.386 9.386 0 0 1-11.265-3.328z"
+              />
+            </svg>
+          </Button>
         </div>
       </div>
     </div>

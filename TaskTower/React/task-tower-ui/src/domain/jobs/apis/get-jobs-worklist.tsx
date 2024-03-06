@@ -1,7 +1,7 @@
 import { Job } from "@/domain/jobs/types";
 import { PagedResponse, Pagination } from "@/types/apis";
 import { isStandaloneEnv } from "@/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SortingState } from "@tanstack/react-table";
 import axios, { AxiosResponse } from "axios";
 import queryString from "query-string";
@@ -100,3 +100,14 @@ export const generateSieveSortOrder = (sortOrder: SortingState | undefined) =>
   sortOrder && sortOrder.length > 0
     ? sortOrder.map((s) => (s.desc ? `-${s.id}` : s.id)).join(",")
     : undefined;
+
+export const useInvalidateJobListQuery = () => {
+  const queryClient = useQueryClient();
+
+  const invalidateJobListQuery = () => {
+    const queryKey = JobKeys.lists();
+    queryClient.invalidateQueries({ queryKey });
+  };
+
+  return invalidateJobListQuery;
+};
