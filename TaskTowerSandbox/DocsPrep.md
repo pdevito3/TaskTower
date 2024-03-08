@@ -48,8 +48,8 @@ TBD
 ## How Task Tower Works
 
 1. Jobs are created (e.g. using an `Enqueue`, `Schedule`, etc.)
-   1. When a job is inserted and should be processed immediately, it is immediately enqueued using a database trigger
-   2. When a job is inserted and should be processed at a later time, Task Tower will poll at at a `JobCheckInterval` to be enqueued
+   1. When a job is inserted and should be processed immediately, it is immediately marked as `Enqueued` using a database trigger
+   2. When a job is inserted and should be processed at a later time, Task Tower will poll at at a `JobCheckInterval` to enqueue jobs at that pace
 2. Task Tower will check the queue at an interval of `QueueAnnouncementInterval` based on whatever prioritization strategy has been configured and announce jobs for processing using Postges' `pg_notify`
 3. Task Tower will be listening for announced jobs and process them
 

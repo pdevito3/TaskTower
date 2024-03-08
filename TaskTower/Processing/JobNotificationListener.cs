@@ -154,14 +154,14 @@ public class JobNotificationListener : BackgroundService
 
         foreach (var enqueuedJob in enqueuedJobs)
         {
-            var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.JobId);
+            var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.Id);
             await conn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
                 new { Notification = TaskTowerConstants.Notifications.JobAvailable, Payload = notifyPayload },
                 transaction: tx
             );
             
             _logger.LogDebug("Announced job {JobId} to {Channel} channel from the queue {Queue}", 
-                enqueuedJob.JobId, TaskTowerConstants.Notifications.JobAvailable, enqueuedJob.Queue);
+                enqueuedJob.Id, TaskTowerConstants.Notifications.JobAvailable, enqueuedJob.Queue);
         }
         
         await tx.CommitAsync(stoppingToken);
@@ -181,14 +181,7 @@ public class JobNotificationListener : BackgroundService
         foreach (var job in scheduledJobs)
         {
             // TODO use domain model
-            var insertResult = await conn.ExecuteAsync(
-                $"INSERT INTO {MigrationConfig.SchemaName}.enqueued_jobs(id, job_id, queue) VALUES (gen_random_uuid(), @Id, @Queue)",
-                new { job.Id, job.Queue },
-                transaction: tx
-            );
-            
-            // TODO use domain model
-            var updateResult = await conn.ExecuteAsync(
+            await conn.ExecuteAsync(
                 $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status WHERE id = @Id",
                 new { job.Id, Status = JobStatus.Enqueued().Value },
                 transaction: tx
@@ -231,12 +224,6 @@ public class JobNotificationListener : BackgroundService
                 await conn.ExecuteAsync(
                     $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
                     new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
-                    transaction: tx
-                );
-                
-                await conn.ExecuteAsync(
-                    $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
-                    new { job.Id },
                     transaction: tx
                 );
                 
@@ -315,12 +302,6 @@ public class JobNotificationListener : BackgroundService
                 CreatedAt = job.CreatedAt,
                 Deadline = job.Deadline
             },
-            transaction: tx
-        );
-                
-        await conn.ExecuteAsync(
-            $"DELETE FROM {MigrationConfig.SchemaName}.enqueued_jobs WHERE job_id = @Id",
-            new { job.Id },
             transaction: tx
         );
                 

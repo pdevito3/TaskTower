@@ -27,13 +27,7 @@ public class Initial : Migration
             .WithColumn("ran_at").AsDateTimeOffset().Nullable()
             .WithColumn("created_at").AsDateTimeOffset().NotNullable()
             .WithColumn("deadline").AsDateTimeOffset().Nullable()
-            .WithColumn("context_parameters").AsCustom("jsonb").Nullable();
-        
-        Create.Table("enqueued_jobs")
-            .InSchema(schemaName)
-            .WithColumn("id").AsGuid().PrimaryKey()
-            .WithColumn("queue").AsString().NotNullable()
-            .WithColumn("job_id").AsGuid().ForeignKey("FK_enqueued_jobs_job_id", schemaName, "jobs", "id").OnDelete(Rule.None);        
+            .WithColumn("context_parameters").AsCustom("jsonb").Nullable();  
         
         Create.Table("run_histories")
             .InSchema(schemaName)
@@ -49,7 +43,6 @@ public class Initial : Migration
             .WithColumn("job_id").AsGuid().PrimaryKey().ForeignKey("FK_tags_job_id", schemaName, "jobs", "id").OnDelete(Rule.None)
             .WithColumn("name").AsString().PrimaryKey();
 
-        Create.Index("ix_enqueued_jobs_job_id").OnTable("enqueued_jobs").InSchema(schemaName).OnColumn("job_id").Unique();
         Create.Index("ix_jobs_run_after").OnTable("jobs").InSchema(schemaName).OnColumn("run_after");
         Create.Index("ix_jobs_status").OnTable("jobs").InSchema(schemaName).OnColumn("status");
         Create.Index("ix_run_histories_job_id").OnTable("run_histories").InSchema(schemaName).OnColumn("job_id");
@@ -66,21 +59,17 @@ $$ LANGUAGE plpgsql;");
 
         Execute.Sql($@"CREATE OR REPLACE FUNCTION {schemaName}.enqueue_job()
 RETURNS TRIGGER AS $$
-BEGIN
-    -- Insert into enqueued_jobs, specifying the schema
-    INSERT INTO {schemaName}.enqueued_jobs(id, job_id, queue)
-    VALUES (gen_random_uuid(), NEW.id, NEW.queue);
-    
-    -- Update status in jobs table, specifying the schema
+BEGIN    
+    -- Update status in jobs table
     UPDATE {schemaName}.jobs
     SET status = 'Enqueued'
     WHERE id = NEW.id;
 
-    -- Add a job history record for enqueuing, specifying the schema
+    -- Add a job history records
     INSERT INTO {schemaName}.run_histories(id, job_id, status, occurred_at)
-    VALUES (gen_random_uuid(), NEW.id, 'Pending', NOW());
-    INSERT INTO {schemaName}.run_histories(id, job_id, status, occurred_at)
-    VALUES (gen_random_uuid(), NEW.id, 'Enqueued', NOW());
+    VALUES 
+        (gen_random_uuid(), NEW.id, 'Pending', NOW()),
+        (gen_random_uuid(), NEW.id, 'Enqueued', NOW());
     
     RETURN NEW;
 END;
@@ -91,19 +80,38 @@ CREATE TRIGGER trigger_enqueue_job
     FOR EACH ROW
     WHEN (timezone('utc', NEW.run_after) <= timezone('utc', NEW.created_at)) 
     EXECUTE FUNCTION {schemaName}.enqueue_job();");
+
+        Execute.Sql($@"CREATE OR REPLACE FUNCTION {schemaName}.add_scheduled_job_pending_history()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Add a job history record for pending
+    INSERT INTO {schemaName}.run_histories(id, job_id, status, occurred_at)
+    VALUES (gen_random_uuid(), NEW.id, 'Pending', NOW());
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_add_scheduled_job_pending_history
+    AFTER INSERT ON {schemaName}.jobs
+    FOR EACH ROW
+    WHEN (timezone('utc', NEW.run_after) > timezone('utc', NEW.created_at)) 
+    EXECUTE FUNCTION {schemaName}.add_scheduled_job_pending_history();");
     }
 
     public override void Down()
     {
         var schemaName = MigrationConfig.SchemaName;
         Delete.Table("jobs").InSchema(schemaName);
-        Delete.Table("enqueued_jobs").InSchema(schemaName);
         Delete.Table("run_histories").InSchema(schemaName);
         Delete.Table("tags").InSchema(schemaName);
 
         Execute.Sql($@"DROP FUNCTION IF EXISTS {schemaName}.notify_job_available();");
-        Execute.Sql($@"DROP TRIGGER IF EXISTS trigger_enqueue_job ON {schemaName}.jobs;");
         Execute.Sql($@"DROP FUNCTION IF EXISTS {schemaName}.enqueue_job();");
+        Execute.Sql($@"DROP FUNCTION IF EXISTS {schemaName}.add_scheduled_job_pending_history();");
+        
+        Execute.Sql($@"DROP TRIGGER IF EXISTS trigger_enqueue_job ON {schemaName}.jobs;");
+        Execute.Sql($@"DROP TRIGGER IF EXISTS trigger_add_scheduled_job_pending_history ON {schemaName}.jobs;");
         
         Delete.Schema(schemaName);
     }

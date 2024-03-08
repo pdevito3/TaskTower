@@ -46,7 +46,7 @@ public class QueuePrioritization : ValueObject
     public async Task<TaskTowerJob?> GetJobToRun(NpgsqlConnection conn,
         NpgsqlTransaction tx,
         Dictionary<string, int> queuePriorities) => await _priority.GetJobToRun(conn, tx, queuePriorities);
-    public async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+    public async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
         NpgsqlTransaction tx,
         Dictionary<string, int> queuePriorities,
         int limit) => await _priority.GetEnqueuedJobs(conn, tx, queuePriorities, limit);
@@ -69,7 +69,7 @@ public class QueuePrioritization : ValueObject
             NpgsqlTransaction tx,
             Dictionary<string, int> queuePriorities);
         
-        public abstract Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
+        public abstract Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
             NpgsqlTransaction tx,
             Dictionary<string, int> queuePriorities,
             int limit);
@@ -104,17 +104,20 @@ public class QueuePrioritization : ValueObject
                 return scheduledJobs;
             }
 
-            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+            public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
-                return await conn.QueryAsync<EnqueuedJob>(
+                return await conn.QueryAsync<TaskTowerJob>(
                     $@"
-    SELECT job_id as JobId, queue as Queue
-    FROM {MigrationConfig.SchemaName}.enqueued_jobs
+    SELECT id, queue
+    FROM {MigrationConfig.SchemaName}.jobs
+    WHERE status = @Enqueued
+    ORDER BY run_after 
     FOR UPDATE SKIP LOCKED
     LIMIT {limit}",
+                    new { Enqueued = JobStatus.Enqueued().Value },
                     transaction: tx
                 );
             }
@@ -153,18 +156,20 @@ LIMIT 8000",
                 return scheduledJobs;
             }
 
-            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+            public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
-                return await conn.QueryAsync<EnqueuedJob>(
+                return await conn.QueryAsync<TaskTowerJob>(
                     $@"
-SELECT job_id as JobId, queue as Queue
-FROM {MigrationConfig.SchemaName}.enqueued_jobs
-ORDER BY queue
+SELECT id, queue
+FROM {MigrationConfig.SchemaName}.jobs
+WHERE status = @Enqueued
+ORDER BY queue, run_after 
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
+                    new { Enqueued = JobStatus.Enqueued().Value },
                     transaction: tx
                 );
             }
@@ -192,7 +197,11 @@ LIMIT {limit}",
 
                 if (priorityCaseSql.Length > 0)
                 {
-                    priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END DESC,";
+                    priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END DESC, run_after";
+                }
+                else
+                {
+                    priorityCaseSql = "run_after";
                 }
 
                 var scheduledJobs = await conn.QueryAsync<TaskTowerJob>(
@@ -201,7 +210,7 @@ SELECT id, queue
 FROM {MigrationConfig.SchemaName}.jobs 
 WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
-ORDER BY {priorityCaseSql} run_after 
+ORDER BY {priorityCaseSql} 
 FOR UPDATE SKIP LOCKED 
 LIMIT 8000",
                     new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
@@ -211,7 +220,7 @@ LIMIT 8000",
                 return scheduledJobs;
             }
 
-            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+            public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
@@ -223,22 +232,22 @@ LIMIT 8000",
                 // Append the CASE statement to ORDER BY if it's not empty; otherwise, default to ordering by some other column
                 if (!string.IsNullOrEmpty(priorityCaseSql))
                 {
-                    priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END";
+                    priorityCaseSql = $"CASE queue {priorityCaseSql} ELSE 0 END DESC, run_after";
                 }
                 else
                 {
-                    // Fallback ordering, e.g., by id or run_after, if no priority case statement is constructed
-                    priorityCaseSql =
-                        "id"; // Adjust this line according to your table's structure and desired default ordering
+                    priorityCaseSql = "run_after";
                 }
                 
-                return await conn.QueryAsync<EnqueuedJob>(
+                return await conn.QueryAsync<TaskTowerJob>(
                     $@"
-SELECT job_id as JobId, queue as Queue
-FROM {MigrationConfig.SchemaName}.enqueued_jobs
-ORDER BY {priorityCaseSql} DESC
+SELECT id, queue
+FROM {MigrationConfig.SchemaName}.jobs
+WHERE status = @Enqueued
+ORDER BY {priorityCaseSql}
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
+                    new { Enqueued = JobStatus.Enqueued().Value },
                     transaction: tx
                 );
             }
@@ -262,7 +271,7 @@ LIMIT {limit}",
                 throw new NotImplementedException();
             }
             
-            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn,
+            public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
@@ -298,7 +307,7 @@ HighestAvailablePriority AS (
     SELECT
         MAX(pr.Rank) AS Rank
     FROM
-        jobs j
+        {MigrationConfig.SchemaName}.jobs j
         INNER JOIN PriorityRanks pr ON j.queue = pr.Priority
     WHERE
         (j.status = @Pending OR (j.status = @Failed AND j.retries < j.max_retries))
@@ -307,7 +316,7 @@ HighestAvailablePriority AS (
 SELECT
     j.id, j.queue
 FROM
-    jobs j
+    {MigrationConfig.SchemaName}.jobs j
     INNER JOIN PriorityRanks pr ON j.queue = pr.Priority
     CROSS JOIN HighestAvailablePriority hap
 WHERE
@@ -329,7 +338,7 @@ LIMIT 8000;";
                 return jobs;
             }
 
-            public override async Task<IEnumerable<EnqueuedJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
+            public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
                 NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
@@ -346,20 +355,22 @@ HighestAvailablePriority AS (
     SELECT
         MAX(pr.Rank) AS Rank
     FROM
-        enqueued_jobs ej
+        {MigrationConfig.SchemaName}.jobs ej
         INNER JOIN PriorityRanks pr ON ej.queue = pr.Priority
+        WHERE ej.status = @Enqueued
 )
-SELECT ej.job_id as JobId, ej.queue as Queue
+SELECT ej.id, ej.queue
 FROM
-    enqueued_jobs ej
+    {MigrationConfig.SchemaName}.jobs ej
     INNER JOIN PriorityRanks pr ON ej.queue = pr.Priority
     CROSS JOIN HighestAvailablePriority hap
-WHERE pr.Rank = hap.Rank
+WHERE pr.Rank = hap.Rank and ej.status = @Enqueued
 FOR UPDATE SKIP LOCKED
 LIMIT {limit};";
                 
-                    return await conn.QueryAsync<EnqueuedJob>(
+                    return await conn.QueryAsync<TaskTowerJob>(
                         sqlQuery,
+                        new { Enqueued = JobStatus.Enqueued().Value },
                         transaction: tx
                     );
             }
@@ -395,7 +406,7 @@ FROM {MigrationConfig.SchemaName}.jobs
 WHERE id = @Id
 FOR UPDATE SKIP LOCKED
 LIMIT 1",
-                new { Id = enqueuedJob?.JobId },
+                new { Id = enqueuedJob?.Id },
                 transaction: tx
             );
 
