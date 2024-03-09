@@ -576,27 +576,6 @@ app.MapPost("/do-a-job-with-a-few-tags", async (HttpContext http, IBackgroundJob
     }
 });
 
-
-app.MapPost("/do-many-slow-things", async (HttpContext http, IBackgroundJobClient client) =>
-{
-    try
-    {
-        for (var i = 0; i < 100; i++)
-        {
-            var command = new DoASlowThing.Command("this is a slow job");
-            await client.Enqueue<DoASlowThing>(x => x.Handle(command));
-        }
-        
-        return Results.Ok(new { Message = $"queued jobs added" });
-    }
-    catch (Exception ex)
-    {
-        var logger = http.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error creating job: {Message}", ex.Message);
-        return Results.Problem("An error occurred while creating the job.");
-    }
-});
-
 app.Run();
 
 
