@@ -16,7 +16,7 @@ export const JobStatusBadge: React.FC<JobStatusBadgeProps> = ({
 
   switch (status) {
     case "Pending":
-      variant = "violet";
+      variant = "cyan";
       break;
     case "Enqueued":
       variant = "indigo";
@@ -28,7 +28,7 @@ export const JobStatusBadge: React.FC<JobStatusBadgeProps> = ({
       variant = "rose";
       break;
     case "Completed":
-      variant = "emerald";
+      variant = "green";
       break;
     case "Dead":
       variant = "amber";

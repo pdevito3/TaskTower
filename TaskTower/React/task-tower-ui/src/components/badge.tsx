@@ -14,6 +14,8 @@ export type BadgeVariant =
   | "violet"
   | "orange"
   | "green"
+  | "teal"
+  | "cyan"
   | "emerald";
 
 const badgeVariants: Record<BadgeVariant, string> = {
@@ -30,6 +32,8 @@ const badgeVariants: Record<BadgeVariant, string> = {
   violet: "text-violet-700 bg-violet-50 ring-violet-700/10",
   orange: "text-orange-700 bg-orange-50 ring-orange-700/10",
   green: "text-green-700 bg-green-50 ring-green-700/10",
+  teal: "text-teal-700 bg-teal-50 ring-teal-700/10",
+  cyan: "text-cyan-700 bg-cyan-50 ring-cyan-700/10",
   emerald: "text-emerald-700 bg-emerald-50 ring-emerald-700/10",
 };
 

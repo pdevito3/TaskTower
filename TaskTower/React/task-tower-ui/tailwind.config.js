@@ -16,11 +16,6 @@ export default {
         display: ['Lexend', ...defaultTheme.fontFamily.sans],
       },
       colors: {
-        green: defaultColors.emerald,
-        purple: defaultColors.violet,
-        yellow: defaultColors.amber,
-        pink: defaultColors.fuchsia,
-        slate: defaultColors.slate,
         ...defaultColors
       },
     },
