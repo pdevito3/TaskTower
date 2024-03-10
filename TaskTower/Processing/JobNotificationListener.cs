@@ -61,32 +61,53 @@ public class JobNotificationListener : BackgroundService
         }
         _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobAvailable);
         
+        _logger.LogInformation("Subscribing to {Channel} channel", TaskTowerConstants.Notifications.JobSetForProcessing);
+        await using (var cmd = new NpgsqlCommand($"LISTEN {TaskTowerConstants.Notifications.JobSetForProcessing}", conn))
+        {
+            await cmd.ExecuteNonQueryAsync(stoppingToken);
+        }
+        _logger.LogInformation("Subscribed to {Channel} channel", TaskTowerConstants.Notifications.JobSetForProcessing);
+
+        
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
-        {
-            // var channel = e.Channel;
-            
-            var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
-            if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
+        {                    
+            await _semaphore.WaitAsync(stoppingToken);
+            try
             {
-                _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
-                    
-                // Wait to enter the semaphore before processing a job
-                await _semaphore.WaitAsync(stoppingToken);
-                try
+                if(e.Channel == TaskTowerConstants.Notifications.JobAvailable)
                 {
-                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
-                    var jobId = await MarkJobAsProcessing(notificationScope.ServiceProvider, stoppingToken);
-                    if (jobId != null)
+                    var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
+                    if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
                     {
-                        await ProcessAvailableJob(notificationScope.ServiceProvider, jobId.Value, stoppingToken);
+                        _logger.LogDebug("Notification received for the {Queue} queue with a Job Id of {Id}", parsedPayload.Queue, parsedPayload.JobId);
+                            
+                        // Wait to enter the semaphore before processing a job
+
+                            await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                            var jobId = await MarkJobAsProcessing(notificationScope.ServiceProvider, stoppingToken);
+                            // if (jobId != null)
+                            // {
+                            //     await ProcessAvailableJob(notificationScope.ServiceProvider, jobId.Value, stoppingToken);
+                            // }
+
                     }
                 }
-                finally
+
+                if (e.Channel == TaskTowerConstants.Notifications.JobSetForProcessing)
                 {
-                    // Ensure the semaphore is always released
-                    _semaphore.Release();
-                }
+                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                    var jobId = Guid.TryParse(e.Payload, out var parsedJobId) ? parsedJobId : (Guid?)null;
+                    if (jobId != null)
+                    {
+                        await ProcessAvailableJob(notificationScope.ServiceProvider, parsedJobId, stoppingToken);
+                    }
+                }                    
+            }
+            finally
+            {
+                // Ensure the semaphore is always released
+                _semaphore.Release();
             }
         };
         
@@ -302,7 +323,24 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             }
             finally
             {
+                _logger.LogDebug("Committing transaction for job {JobId} from queue {Queue} with payload {Payload} as processing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+                
+                await conn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
+                    new { Notification = TaskTowerConstants.Notifications.JobSetForProcessing, Payload = job.Id.ToString() },
+                    transaction: tx
+                );
                 await tx.CommitAsync(stoppingToken);
+                _logger.LogDebug("Transaction committed for job {JobId} from queue {Queue} with payload {Payload} as processing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+                
+                // await using var publishConn = new NpgsqlConnection(_options.ConnectionString);
+                // await publishConn.OpenAsync(stoppingToken);
+                //
+                // await using var publishTx = await publishConn.BeginTransactionAsync(stoppingToken);
+                // await publishConn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
+                //     new { Notification = TaskTowerConstants.Notifications.JobSetForProcessing, Payload = job.Id.ToString() },
+                //     transaction: publishTx
+                // );
+                // await publishTx.CommitAsync(stoppingToken);
             }
             
             if (job.Status.IsDead())
@@ -352,7 +390,7 @@ LIMIT 1",
         
         if(job == null)
         {
-            _logger.LogDebug("Job {JobId} is still locked, waiting and then retrying selection", jobId);
+            _logger.LogWarning("Job {JobId} is still locked, waiting and then retrying selection", jobId);
             await Task.Delay(1000, stoppingToken);
             
             var retriedJob = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
@@ -381,7 +419,7 @@ LIMIT 1",
             
             if(retriedJob == null)
             {
-                _logger.LogDebug("Job {JobId} is still locked, can not progress", jobId);
+                _logger.LogError("Job {JobId} is still locked, can not progress", jobId);
                 await HandleProcessingHangReset(stoppingToken, new List<Guid>() {jobId}, conn, tx, "Job could not be selected for processing, requeuing");                return;
             }
             

@@ -283,7 +283,7 @@ app.MapPost("/create-many-jobs", async (HttpContext http, IBackgroundJobClient c
     }
 });
 
-app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobClient client) =>
+app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobClient client, CancellationToken cancellationToken) =>
 {
     try
     {
@@ -292,6 +292,20 @@ app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobCli
             var command = new DoAThing.Command(Guid.NewGuid().ToString());
             await client.Enqueue<DoAThing>(x => x.Handle(command));
         }
+        
+        // ParallelOptions options = new()
+        // {
+        //     CancellationToken = cancellationToken
+        // };
+        //
+        // var intList = Enumerable.Range(0, 10000).ToList();
+        // await Parallel.ForEachAsync(intList, options, Enqueue);
+        // ValueTask Enqueue(int index, CancellationToken ct)
+        // {
+        //     var command = new DoAThing.Command(index.ToString());
+        //     client.Enqueue<DoAThing>(x => x.Handle(command));
+        //     return ValueTask.CompletedTask;
+        // }
         
         return Results.Ok(new { Message = $"Jobs created" });
     }
