@@ -71,11 +71,31 @@ public class JobNotificationListener : BackgroundService
         
         // Define the action to take when a notification is received
         conn.Notification += async (_, e) =>
-        {                    
-            await _semaphore.WaitAsync(stoppingToken);
-            try
+        {
+            if (e.Channel == TaskTowerConstants.Notifications.JobSetForProcessing)
             {
-                if(e.Channel == TaskTowerConstants.Notifications.JobAvailable)
+                await _semaphore.WaitAsync(stoppingToken);
+                try
+                {
+                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
+                    var jobId = Guid.TryParse(e.Payload, out var parsedJobId) ? parsedJobId : (Guid?)null;
+                    if (jobId != null)
+                    {
+                        await ProcessAvailableJob(notificationScope.ServiceProvider, parsedJobId,
+                            stoppingToken);
+                    }
+                }
+                finally
+                {
+                    // Ensure the semaphore is always released
+                    _semaphore.Release();
+                }       
+            }
+        
+            if(e.Channel == TaskTowerConstants.Notifications.JobAvailable)
+            {
+                await _semaphore.WaitAsync(stoppingToken);
+                try
                 {
                     var parsedPayload = NotificationHelper.ParsePayload(e.Payload);
                     if (!string.IsNullOrEmpty(parsedPayload.Queue) && parsedPayload.JobId != Guid.Empty)
@@ -90,24 +110,13 @@ public class JobNotificationListener : BackgroundService
                             // {
                             //     await ProcessAvailableJob(notificationScope.ServiceProvider, jobId.Value, stoppingToken);
                             // }
-
-                    }
+                    }                
                 }
-
-                if (e.Channel == TaskTowerConstants.Notifications.JobSetForProcessing)
+                finally
                 {
-                    await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
-                    var jobId = Guid.TryParse(e.Payload, out var parsedJobId) ? parsedJobId : (Guid?)null;
-                    if (jobId != null)
-                    {
-                        await ProcessAvailableJob(notificationScope.ServiceProvider, parsedJobId, stoppingToken);
-                    }
-                }                    
-            }
-            finally
-            {
-                // Ensure the semaphore is always released
-                _semaphore.Release();
+                    // Ensure the semaphore is always released
+                    _semaphore.Release();
+                }
             }
         };
         
@@ -249,7 +258,8 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
-        var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
+        var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, 
+            queuePriorities, 8000);
 
         foreach (var enqueuedJob in enqueuedJobs)
         {
