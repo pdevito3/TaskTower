@@ -10,7 +10,6 @@ public class TaskTowerConstants
     public static class Notifications
     {
         public const string JobAvailable = "job_available";
-        public const string JobSetForProcessing = "job_set_for_processing";
     }
     public static class Configuration
     {

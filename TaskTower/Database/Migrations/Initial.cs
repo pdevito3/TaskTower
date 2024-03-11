@@ -56,14 +56,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;");
-        
-        Execute.Sql($@"CREATE OR REPLACE FUNCTION {schemaName}.notify_job_set_for_processing()
-RETURNS trigger AS $$
-BEGIN
-    PERFORM pg_notify('job_set_for_processing', NEW.id::text);
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;");
 
         Execute.Sql($@"CREATE OR REPLACE FUNCTION {schemaName}.enqueue_job()
 RETURNS TRIGGER AS $$

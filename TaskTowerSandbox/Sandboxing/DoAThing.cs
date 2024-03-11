@@ -14,7 +14,7 @@ public class DoAThing
     public async Task Handle(Command request)
     {
         // await Task.Delay(1000);
-        // Log.Information("Handled DoAThing with data: {Data}", request.Data);
+        Log.Information("Handled DoAThing with data: {Data}", request.Data);
     }
 }
 
