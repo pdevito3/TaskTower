@@ -350,45 +350,81 @@ LIMIT 1",
             transaction: tx
         );
         
-        if(job == null)
+        if (job == null)
         {
-            _logger.LogDebug("Job {JobId} is still locked, waiting and then retrying selection", jobId);
-            await Task.Delay(1000, stoppingToken);
-            
-            var retriedJob = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
-                $@"
-SELECT id as Id,  
-       queue as Queue, 
-       status as Status, 
-       type as Type, 
-       method as Method, 
-       parameter_types as ParameterTypes, 
-       payload as Payload, 
-       retries as Retries, 
-       max_retries as MaxRetries, 
-       run_after as RunAfter, 
-       ran_at as RanAt, 
-       created_at as CreatedAt, 
-       deadline as Deadline,
-       context_parameters as RawContextParameters
-FROM {MigrationConfig.SchemaName}.jobs
-WHERE id = @Id
-FOR UPDATE SKIP LOCKED
-LIMIT 1",
-                new { Id = jobId },
-                transaction: tx
-            );
-            
-            if(retriedJob == null)
+            // when postgres under high load, there can be a delayed release of the lock (i.e. from updating the job to
+            // `Processing` status) so we wait and then retry the selection -- increasing pool size may help
+            var maxRetries = 5;
+            var retryCount = 1;
+            var jobProcessed = false;
+    
+            while (!jobProcessed && retryCount <= maxRetries)
             {
-                _logger.LogDebug("Job {JobId} is still locked, can not progress", jobId);
-                await HandleProcessingHangReset(stoppingToken, new List<Guid>() {jobId}, conn, tx, "Job could not be selected for processing, requeuing");                return;
+                if (retryCount > 1)
+                    _logger.LogWarning(
+                        "There was a delayed lock release for Job {JobId}, starting backoff and then retrying selection (retry {Retry}) -- increasing pool size may help",
+                        jobId,
+                        retryCount);
+                
+                if (retryCount == maxRetries)
+                {
+                    _logger.LogWarning("Job {JobId} is on it's last retry from a delayed lock release", jobId);
+                }
+                
+                var delayDurationMs = retryCount == 0 
+                    ? 1000 
+                    : retryCount <= 2 
+                        ? retryCount * 1000 
+                        : 2500;
+                if (delayDurationMs > 0)
+                {
+                    await Task.Delay(delayDurationMs, stoppingToken);
+                }
+    
+                var retriedJob = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+                    $@"
+    SELECT id as Id,  
+           queue as Queue, 
+           status as Status, 
+           type as Type, 
+           method as Method, 
+           parameter_types as ParameterTypes, 
+           payload as Payload, 
+           retries as Retries, 
+           max_retries as MaxRetries, 
+           run_after as RunAfter, 
+           ran_at as RanAt, 
+           created_at as CreatedAt, 
+           deadline as Deadline,
+           context_parameters as RawContextParameters
+    FROM {MigrationConfig.SchemaName}.jobs
+    WHERE id = @Id
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1",
+                    new { Id = jobId },
+                    transaction: tx
+                );
+    
+                if (retriedJob == null)
+                {
+                    jobProcessed = false;
+                    retryCount++;
+                    continue;
+                }
+    
+                await HandleJob(serviceProvider, stoppingToken, retriedJob, conn, tx);
+                jobProcessed = true;
             }
-            
-            await HandleJob(serviceProvider, stoppingToken, retriedJob, conn, tx);
+    
+            if (!jobProcessed)
+            {
+                _logger.LogError("Job {JobId} was not found after {MaxRetries} retries", jobId, maxRetries);
+                // TODO add some kind of handling? cleanup table that can requeue?
+            }
+    
             return;
         }
-        
+
         await HandleJob(serviceProvider, stoppingToken, job, conn, tx);
     }
 
