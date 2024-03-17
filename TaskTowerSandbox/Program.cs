@@ -267,11 +267,24 @@ app.MapPost("/create-many-jobs", async (HttpContext http, IBackgroundJobClient c
 {
     try
     {
-        for (var i = 0; i < 500; i++)
+        // for (var i = 0; i < 500; i++)
+        // {
+        //     var command = new DoAThing.Command(Guid.NewGuid().ToString());
+        //     await client.Enqueue<DoAThing>(x => x.Handle(command));
+        // }
+
+        var loopCountList = Enumerable.Range(0, 500).ToList();
+        ValueTask Enqueue(int i, CancellationToken ct)
         {
             var command = new DoAThing.Command(Guid.NewGuid().ToString());
-            await client.Enqueue<DoAThing>(x => x.Handle(command));
+            client.Enqueue<DoAThing>(x => x.Handle(command));
+            return ValueTask.CompletedTask;
         }
+        var options = new ParallelOptions
+        {
+            MaxDegreeOfParallelism = 100
+        };
+        await Parallel.ForEachAsync(loopCountList, options, Enqueue);
         
         return Results.Ok(new { Message = $"Jobs created" });
     }
@@ -287,11 +300,17 @@ app.MapPost("/create-many-many-jobs", async (HttpContext http, IBackgroundJobCli
 {
     try
     {
-        for (var i = 0; i < 10000; i++)
+        // for (var i = 0; i < 10000; i++)
+        // {
+        //     var command = new DoAThing.Command(Guid.NewGuid().ToString());
+        //     await client.Enqueue<DoAThing>(x => x.Handle(command));
+        // }
+        var loopCountList = Enumerable.Range(0, 10000).ToList();
+        await Parallel.ForEachAsync(loopCountList, async (i, token) =>
         {
             var command = new DoAThing.Command(Guid.NewGuid().ToString());
             await client.Enqueue<DoAThing>(x => x.Handle(command));
-        }
+        });
         
         return Results.Ok(new { Message = $"Jobs created" });
     }
