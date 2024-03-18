@@ -10,6 +10,7 @@ using Domain.JobStatuses;
 using Domain.RunHistories;
 using Domain.RunHistories.Models;
 using Domain.TaskTowerJob;
+using Exceptions;
 using Interception;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -33,9 +34,9 @@ public class JobNotificationListener : BackgroundService
 
         _options = _serviceScopeFactory.CreateScope()
             .ServiceProvider.GetRequiredService<IOptions<TaskTowerOptions>>().Value;
-        
-        if(_options == null)
-            throw new ArgumentNullException("No TaskTowerOptions were found in the service provider");
+
+        if (_options == null)
+            throw new MissingTaskTowerOptionsException();
         
         _semaphore = new SemaphoreSlim(_options.BackendConcurrency);
     }
@@ -45,7 +46,10 @@ public class JobNotificationListener : BackgroundService
         // try
         // {
         _logger.LogInformation("Task Tower worker is starting");
+        _logger.LogDebug("Task Tower worker is using a concurrency level of {Concurrency}", _options.BackendConcurrency);
         using var scope = _serviceScopeFactory.CreateScope();
+
+        await ResetMidProcessingJobs(stoppingToken);
         
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
@@ -72,7 +76,11 @@ public class JobNotificationListener : BackgroundService
                 try
                 {
                     await using var notificationScope = _serviceScopeFactory.CreateAsyncScope();
-                    await ProcessAvailableJob(notificationScope.ServiceProvider, stoppingToken);
+                    var jobId = await MarkJobAsProcessing(notificationScope.ServiceProvider, stoppingToken);
+                    if (jobId != null)
+                    {
+                        await ProcessAvailableJob(notificationScope.ServiceProvider, jobId.Value, stoppingToken);
+                    }
                 }
                 finally
                 {
@@ -104,6 +112,76 @@ public class JobNotificationListener : BackgroundService
         //     _logger.LogError(ex, "An error occurred while processing job notifications");
         // }
     }
+
+    private async Task ResetMidProcessingJobs(CancellationToken stoppingToken)
+    {
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
+        await conn.OpenAsync(stoppingToken);
+        
+        _logger.LogDebug("Requeuing any jobs that stopped mid processing");
+        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
+        
+        var processingJobs = await conn.QueryAsync<Guid>(
+            $@"
+SELECT id
+FROM {MigrationConfig.SchemaName}.jobs
+WHERE status = @Status
+FOR UPDATE SKIP LOCKED",
+            new { Status = JobStatus.Processing().Value },
+            transaction: tx
+        );
+        List<Guid> processingJobsList = processingJobs?.ToList() ?? new List<Guid>();
+        if (processingJobsList.Count == 0)
+        {
+            _logger.LogDebug("No jobs found to requeue");
+            return;
+        }
+
+        await HandleProcessingHangReset(stoppingToken, processingJobsList, conn, tx, "Job was requeued after being stopped mid processing");
+        _logger.LogDebug("Requeued {Count} jobs that stopped mid processing", processingJobsList.Count);
+    }
+
+    private async Task HandleProcessingHangReset(CancellationToken stoppingToken, List<Guid> processingJobsList,
+        NpgsqlConnection conn, NpgsqlTransaction tx, string reason)
+    {
+        // for some reason the array passing is throwing -- confident of no sql injection here
+        var commaSeparatedSingleQuotedJobIds = string.Join(",", processingJobsList.Select(x => $"'{x}'"));
+        var sql = @$"
+UPDATE {MigrationConfig.SchemaName}.jobs 
+SET status = @Status 
+WHERE id in ({commaSeparatedSingleQuotedJobIds})";
+        await conn.ExecuteAsync(
+            sql,
+            new { Status = JobStatus.Enqueued().Value },
+            transaction: tx
+        );
+        
+        var runHistoriesToCreate = processingJobsList.Select(jobId => RunHistory.Create(new RunHistoryForCreation()
+        {
+            JobId = jobId,
+            Status = JobStatus.Enqueued(),
+            Comment = reason
+        }))?.ToList() ?? new List<RunHistory>();
+        var anonymousRunHistories = runHistoriesToCreate.Select(x => new
+        {
+            Id = x.Id,
+            JobId = x.JobId,
+            Status = x.Status.Value,
+            Comment = x.Comment,
+            OccurredAt = x.OccurredAt
+        });
+        
+        await conn.ExecuteAsync(
+            @$"
+INSERT INTO {MigrationConfig.SchemaName}.run_histories(id, job_id, status, comment, occurred_at)
+VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
+            anonymousRunHistories,
+            transaction: tx
+        );
+        
+        await tx.CommitAsync(stoppingToken);
+    }
+
     private TimeSpan NormalizeInterval(TimeSpan interval)
     {
         return interval <= TimeSpan.FromMilliseconds(TaskTowerConstants.Configuration.MinimumWaitIntervalMilliseconds) 
@@ -200,7 +278,7 @@ public class JobNotificationListener : BackgroundService
         await tx.CommitAsync(stoppingToken);
     }
 
-    private async Task ProcessAvailableJob(IServiceProvider serviceProvider, CancellationToken stoppingToken)
+    private async Task<Guid?> MarkJobAsProcessing(IServiceProvider serviceProvider, CancellationToken stoppingToken)
     {
         // TODO add connection timeout handling
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
@@ -217,38 +295,180 @@ public class JobNotificationListener : BackgroundService
             {
                 serviceProvider = PerformPreprocessing(serviceProvider, job);
                 await MarkAsProcessing(job, conn, tx);
-
-                await job.Invoke(serviceProvider);
-                
-                var nowDone = DateTimeOffset.UtcNow;
-                await conn.ExecuteAsync(
-                    $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
-                    new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
-                    transaction: tx
-                );
-                
-                var runHistory = RunHistory.Create(new RunHistoryForCreation()
-                {
-                    JobId = job.Id,
-                    Status = JobStatus.Completed(),
-                    OccurredAt = nowDone
-                });
-                await AddRunHistory(conn, runHistory, tx);
             }
             catch (Exception ex)
             {
                 errorDetails = await HandleFailure(job, conn, tx, ex);
             }
-            await tx.CommitAsync(stoppingToken);
+            finally
+            {
+                await tx.CommitAsync(stoppingToken);
+            }
             
             if (job.Status.IsDead())
             {
                 ExecuteDeathInterceptors(serviceProvider, job, errorDetails);
             }
             
-            _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+            _logger.LogDebug("Marked job {JobId} from queue {Queue} with payload {Payload} as processing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+            return job.Id;
         }
         
+        return null;
+    }
+
+    private async Task ProcessAvailableJob(IServiceProvider serviceProvider, Guid jobId, CancellationToken stoppingToken)
+    {
+        _logger.LogDebug("Processing job {JobId} at {Time}", jobId, DateTimeOffset.UtcNow.ToString("o"));
+        
+        // TODO add connection timeout handling
+        await using var conn = new NpgsqlConnection(_options.ConnectionString);
+        await conn.OpenAsync(stoppingToken);
+        
+        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
+        var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+            $@"
+SELECT id as Id,  
+       queue as Queue, 
+       status as Status, 
+       type as Type, 
+       method as Method, 
+       parameter_types as ParameterTypes, 
+       payload as Payload, 
+       retries as Retries, 
+       max_retries as MaxRetries, 
+       run_after as RunAfter, 
+       ran_at as RanAt, 
+       created_at as CreatedAt, 
+       deadline as Deadline,
+       context_parameters as RawContextParameters
+FROM {MigrationConfig.SchemaName}.jobs
+WHERE id = @Id
+FOR UPDATE SKIP LOCKED
+LIMIT 1",
+            new { Id = jobId },
+            transaction: tx
+        );
+        
+        if (job == null)
+        {
+            // when postgres under high load, there can be a delayed release of the lock (i.e. from updating the job to
+            // `Processing` status) so we wait and then retry the selection -- increasing pool size may help
+            var maxRetries = 5;
+            var retryCount = 1;
+            var jobProcessed = false;
+    
+            while (!jobProcessed && retryCount <= maxRetries)
+            {
+                if (retryCount > 1)
+                    _logger.LogWarning(
+                        "There was a delayed lock release for Job {JobId}, starting backoff and then retrying selection (retry {Retry}) -- increasing pool size may help",
+                        jobId,
+                        retryCount);
+                
+                if (retryCount == maxRetries)
+                {
+                    _logger.LogWarning("Job {JobId} is on it's last retry from a delayed lock release", jobId);
+                }
+                
+                var delayDurationMs = retryCount == 0 
+                    ? 1000 
+                    : retryCount <= 2 
+                        ? retryCount * 1000 
+                        : 2500;
+                if (delayDurationMs > 0)
+                {
+                    await Task.Delay(delayDurationMs, stoppingToken);
+                }
+    
+                var retriedJob = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+                    $@"
+    SELECT id as Id,  
+           queue as Queue, 
+           status as Status, 
+           type as Type, 
+           method as Method, 
+           parameter_types as ParameterTypes, 
+           payload as Payload, 
+           retries as Retries, 
+           max_retries as MaxRetries, 
+           run_after as RunAfter, 
+           ran_at as RanAt, 
+           created_at as CreatedAt, 
+           deadline as Deadline,
+           context_parameters as RawContextParameters
+    FROM {MigrationConfig.SchemaName}.jobs
+    WHERE id = @Id
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1",
+                    new { Id = jobId },
+                    transaction: tx
+                );
+    
+                if (retriedJob == null)
+                {
+                    jobProcessed = false;
+                    retryCount++;
+                    continue;
+                }
+    
+                await HandleJob(serviceProvider, stoppingToken, retriedJob, conn, tx);
+                jobProcessed = true;
+            }
+    
+            if (!jobProcessed)
+            {
+                _logger.LogError("Job {JobId} was not found after {MaxRetries} retries", jobId, maxRetries);
+                // TODO add some kind of handling? cleanup table that can requeue?
+            }
+    
+            return;
+        }
+
+        await HandleJob(serviceProvider, stoppingToken, job, conn, tx);
+    }
+
+    private async Task HandleJob(IServiceProvider serviceProvider, CancellationToken stoppingToken, TaskTowerJob job,
+        NpgsqlConnection conn, NpgsqlTransaction tx)
+    {
+        _logger.LogDebug("Processing job {JobId} from queue {Queue} with payload {Payload} at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+        
+        var errorDetails = new ErrorDetails(null, null, null);
+
+        try
+        {
+            await job.Invoke(serviceProvider);
+
+            var nowDone = DateTimeOffset.UtcNow;
+            await conn.ExecuteAsync(
+                $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+                new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
+                transaction: tx
+            );
+
+            var runHistory = RunHistory.Create(new RunHistoryForCreation()
+            {
+                JobId = job.Id,
+                Status = JobStatus.Completed(),
+                OccurredAt = nowDone
+            });
+            await AddRunHistory(conn, runHistory, tx);
+        }
+        catch (Exception ex)
+        {
+            errorDetails = await HandleFailure(job, conn, tx, ex);
+        }
+        finally
+        {
+            await tx.CommitAsync(stoppingToken);
+        }
+
+        if (job.Status.IsDead())
+        {
+            ExecuteDeathInterceptors(serviceProvider, job, errorDetails);
+        }
+        
+        _logger.LogDebug("Processed job {JobId} from queue {Queue} with payload {Payload}, finishing at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
     }
 
     private void ExecuteDeathInterceptors(IServiceProvider serviceProvider, TaskTowerJob job, ErrorDetails errorDetails)
@@ -329,6 +549,11 @@ public class JobNotificationListener : BackgroundService
         var nowProcessing = DateTimeOffset.UtcNow;
         _logger.LogDebug("Processing job {JobId} from the {Queue} queue with a payload of {Payload} at {Now}", 
             job.Id, job.Queue, job.Payload, nowProcessing.ToString("o"));
+        await conn.ExecuteAsync(
+            $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+            new { job.Id, Status = JobStatus.Processing().Value, Now = nowProcessing },
+            transaction: tx
+        );
         var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
         {
             JobId = job.Id,
