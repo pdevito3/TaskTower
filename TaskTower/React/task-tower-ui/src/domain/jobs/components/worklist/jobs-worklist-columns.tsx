@@ -1,11 +1,39 @@
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { JobStatusBadge } from "@/domain/jobs/components/job-status";
 import { Job, JobStatus } from "@/domain/jobs/types";
+import { cn } from "@/utils";
+import { Link } from "@tanstack/react-router";
 import { ColumnDef } from "@tanstack/react-table";
 import { formatDistanceToNow, parseISO } from "date-fns";
+import React, { HTMLProps } from "react";
 
 type Columns = ColumnDef<Job>;
 export const createColumns = (): Columns[] => [
+  {
+    id: "selection",
+    header: ({ table }) => (
+      <div>
+        <IndeterminateCheckbox
+          {...{
+            checked: table.getIsAllRowsSelected(),
+            indeterminate: table.getIsSomeRowsSelected(),
+            onChange: table.getToggleAllRowsSelectedHandler(),
+          }}
+        />
+      </div>
+    ),
+    cell: ({ row }) => (
+      <div>
+        <IndeterminateCheckbox
+          {...{
+            checked: row.getIsSelected(),
+            indeterminate: row.getIsSomeSelected(),
+            onChange: row.getToggleSelectedHandler(),
+          }}
+        />
+      </div>
+    ),
+  },
   {
     accessorKey: "id",
     header: "Id",
@@ -25,7 +53,13 @@ export const createColumns = (): Columns[] => [
 
         <div className="flex space-x-3">
           <div className="inline-flex flex-col">
-            <p className="block ">{jobName}</p>
+            <Link
+              to={`/tasktower/jobs/${row.getValue("id")}`}
+              params={{ id: row.getValue("id") }}
+              className="block text-sky-600 hover:text-sky-500 hover:underline"
+            >
+              {jobName}
+            </Link>
             <p className="block text-xs text-slate-700">{id}</p>
           </div>
         </div>
@@ -200,3 +234,26 @@ export const createColumns = (): Columns[] => [
 
 //   return <div>{countdown}</div>;
 // };
+
+function IndeterminateCheckbox({
+  indeterminate,
+  className = "",
+  ...rest
+}: { indeterminate?: boolean } & HTMLProps<HTMLInputElement>) {
+  const ref = React.useRef<HTMLInputElement>(null!);
+
+  React.useEffect(() => {
+    if (typeof indeterminate === "boolean") {
+      ref.current.indeterminate = !rest.checked && indeterminate;
+    }
+  }, [ref, indeterminate, rest.checked]);
+
+  return (
+    <input
+      type="checkbox"
+      ref={ref}
+      className={cn("cursor-pointer accent-emerald-300", className)}
+      {...rest}
+    />
+  );
+}

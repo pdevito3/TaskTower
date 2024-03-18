@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { JobStatus } from "@/domain/jobs/types";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { Trash2Icon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useInvalidateJobListQuery } from "../../apis/get-jobs-worklist";
 import { useGetQueueNames } from "../../apis/get-queue-names";
@@ -11,7 +12,13 @@ import { QueueFilterControl } from "./job-queue-filter-control";
 import { FilterControl } from "./job-status-filter-control";
 import { useJobsTableStore } from "./jobs-worklist.store";
 
-export function JobsWorklistToolbar() {
+export function JobsWorklistToolbar({
+  handleJobDeletion,
+  hasRowsSelected,
+}: {
+  handleJobDeletion: () => void;
+  hasRowsSelected: boolean;
+}) {
   const { filterInput, setFilterInput, isFiltered, resetFilters } =
     useJobsTableStore();
   const [liveValue, setLiveValue] = useState(filterInput);
@@ -89,6 +96,30 @@ export function JobsWorklistToolbar() {
               />
             </svg>
           </Button>
+          <Button
+            variant="destructive"
+            onClick={handleJobDeletion}
+            disabled={!hasRowsSelected}
+          >
+            <p className="sr-only">Delete Jobs</p>
+            <Trash2Icon className="w-4 h-4" />
+          </Button>
+
+          {/* <button
+            onClick={handleJobDeletion}
+            disabled={!hasRowsSelected}
+            className={cn(
+              "inline-flex items-center px-2 py-3 text-sm font-medium leading-5 transition duration-100 ease-in bg-white border border-gray-300 shadow-sm",
+              "hover:bg-rose-200 hover:text-rose-800 hover:outline-none",
+              "dark:border-slate-900 dark:bg-slate-800 dark:text-white dark:hover:bg-rose-800 dark:hover:text-rose-300 dark:hover:outline-none",
+              "sm:px-3 sm:py-3 dark:hover:shadow dark:shadow-rose-400 dark:hover:shadow-rose-300",
+              !hasRowsSelected &&
+                "bg:gray-200 text-gray-800 dark:bg-gray-800 dark:text-white"
+            )}
+          >
+            <p className="sr-only">Delete Jobs</p>
+            <Trash2Icon className="w-4 h-4" />
+          </button> */}
         </div>
       </div>
     </div>

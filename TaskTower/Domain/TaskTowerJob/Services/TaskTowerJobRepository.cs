@@ -17,6 +17,7 @@ public interface ITaskTowerJobRepository
         CancellationToken cancellationToken = default);
     Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default);
     Task<List<string>> GetQueueNames(CancellationToken cancellationToken = default);
+    Task BulkDeleteJobs(Guid[] jobIds, CancellationToken cancellationToken = default);
 }
 
 internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
@@ -101,8 +102,6 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
         var pagedList = new PagedList<TaskTowerJob>(jobs.ToList(), totalJobCount, pageNumber, pageSize);
         return pagedList;
     }
-
-
     
     public async Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default)
     {
@@ -172,5 +171,23 @@ SELECT DISTINCT queue
 FROM {MigrationConfig.SchemaName}.jobs j
 ORDER BY queue");
         return queueNames.ToList();
+    }
+    
+    public async Task BulkDeleteJobs(Guid[] jobIds, CancellationToken cancellationToken = default)
+    {
+        // for some reason the array passing is throwing -- confident of no sql injection here
+        var commaSeparatedSingleQuotedJobIds = string.Join(",", jobIds.Select(x => $"'{x}'"));
+        await using var conn = new NpgsqlConnection(options.Value.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        await conn.ExecuteAsync(
+            @$"
+DELETE FROM {MigrationConfig.SchemaName}.run_histories
+WHERE job_id IN ({commaSeparatedSingleQuotedJobIds});
+
+DELETE FROM {MigrationConfig.SchemaName}.tags
+WHERE job_id IN ({commaSeparatedSingleQuotedJobIds});
+
+DELETE FROM {MigrationConfig.SchemaName}.jobs
+WHERE id IN ({commaSeparatedSingleQuotedJobIds});");
     }
 }

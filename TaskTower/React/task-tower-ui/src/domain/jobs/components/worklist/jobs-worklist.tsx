@@ -1,3 +1,5 @@
+import { Notification } from "@/components/notifications";
+import { Job } from "@/domain/jobs/types";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -24,7 +26,7 @@ import {
 } from "@/components/ui/table";
 import { useJobsTableStore } from "@/domain/jobs/components/worklist/jobs-worklist.store";
 import { Pagination } from "@/types/apis";
-import { useNavigate } from "@tanstack/react-router";
+import { useDeleteJobs } from "../../apis/delete-jobs";
 import { JobsWorklistToolbar } from "./worklist-toolbar";
 
 interface DataTableProps<TData, TValue> {
@@ -61,7 +63,6 @@ export function JobsWorklist<TData, TValue>({
     setPageNumber,
   } = useJobsTableStore();
 
-  const navigate = useNavigate();
   const table = useReactTable({
     data,
     columns,
@@ -77,7 +78,7 @@ export function JobsWorklist<TData, TValue>({
     },
     manualPagination: true,
     manualSorting: true,
-    enableRowSelection: true,
+    enableMultiRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -90,12 +91,38 @@ export function JobsWorklist<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  const deleteJobsApi = useDeleteJobs();
+  function handleDeleteJobs() {
+    const selectedRowIds = table.getSelectedRowModel().rows.map((row) => {
+      const original = row.original as Job;
+      return original.id;
+    });
+
+    deleteJobsApi
+      .mutateAsync(selectedRowIds)
+      .then(() => {
+        Notification.success("Jobs deleted successfully");
+      })
+      .then(() => {
+        table.resetRowSelection();
+      })
+      .catch((e) => {
+        Notification.error("There was an error deleting the jobs");
+        console.error(e);
+      });
+  }
+
   return (
     <div className="space-y-4">
       <div className="border rounded-md overflow-hidden">
         <div className="flex justify-between items-center">
           <div className="px-3">
-            <JobsWorklistToolbar />
+            <JobsWorklistToolbar
+              handleJobDeletion={handleDeleteJobs}
+              hasRowsSelected={
+                table.getIsAllRowsSelected() || table.getIsSomeRowsSelected()
+              }
+            />
           </div>
           <PaginationControls
             entityPlural={"Jobs"}
@@ -106,6 +133,9 @@ export function JobsWorklist<TData, TValue>({
             setPageNumber={setPageNumber}
             orientation="right"
           />
+          <div className="px-3">
+            <button onClick={() => {}}>Alert Row Selection</button>
+          </div>
         </div>
         <div className="pt-2" />
         <Table>
@@ -145,14 +175,6 @@ export function JobsWorklist<TData, TValue>({
                       key={row.id}
                       data-state={row.getIsSelected() && "selected"}
                       className="group"
-                      onRowClick={() => {
-                        navigate({
-                          to: `/tasktower/jobs/${row.getValue("id")}`,
-                          params: {
-                            jobId: row.getValue("id"),
-                          },
-                        });
-                      }}
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>

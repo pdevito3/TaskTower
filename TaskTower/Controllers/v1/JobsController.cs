@@ -71,4 +71,13 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
         var queueNames = await taskTowerJobRepository.GetQueueNames();
         return Ok(queueNames);
     }
+    
+    public sealed record BulkDeleteJobsRequest(Guid[] JobIds);
+    [HttpPost("bulk")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> BulkDeleteJobs([FromBody] BulkDeleteJobsRequest request)
+    {
+        await taskTowerJobRepository.BulkDeleteJobs(request.JobIds);
+        return NoContent();
+    }
 }
