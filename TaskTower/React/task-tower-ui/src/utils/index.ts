@@ -10,6 +10,10 @@ export function isStandaloneEnv() {
   return getEnv() === "Standalone";
 }
 
+export function isProdEnv() {
+  return getEnv() === "Production";
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

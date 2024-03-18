@@ -4,6 +4,7 @@ import { ReactQueryDevtools, TanStackRouterDevtools } from "@/lib/dev-tools";
 import { siteConfig } from "@/lib/site-config";
 import { IndexPage } from "@/pages/index";
 import { JobsWorklistPage } from "@/pages/jobs";
+import { cn } from "@/utils";
 import {
   Outlet,
   RoutePaths,
@@ -14,6 +15,7 @@ import {
 import { Helmet } from "react-helmet";
 import { z } from "zod";
 import { EditJobPage } from "./pages/jobs/edit-job-page";
+import { isProdEnv } from "./utils";
 
 const appRoute = createRootRoute({
   component: () => {
@@ -44,7 +46,12 @@ const appRoute = createRootRoute({
           <meta property="twitter:image" content={siteConfig.ogImage} /> */}
         </Helmet>
 
-        <div className="h-full min-h-screen font-sans antialiased scroll-smooth debug-screens [font-feature-settings:'ss01'] ">
+        <div
+          className={cn(
+            "h-full min-h-screen font-sans antialiased scroll-smooth [font-feature-settings:'ss01']",
+            isProdEnv() && "debug-screens"
+          )}
+        >
           <Outlet />
           <Notification />
           <div className="hidden md:block">
