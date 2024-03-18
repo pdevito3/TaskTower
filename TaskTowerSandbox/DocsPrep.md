@@ -45,13 +45,25 @@ TBD
 
 > Note that check intervals have a hard coded minimum of 500ms
 
+## Job Lifcycle
+
+TBD Mermaid
+
 ## How Task Tower Works
 
 1. Jobs are created (e.g. using an `Enqueue`, `Schedule`, etc.)
    1. When a job is inserted and should be processed immediately, it is immediately marked as `Enqueued` using a database trigger
    2. When a job is inserted and should be processed at a later time, Task Tower will poll at at a `JobCheckInterval` to enqueue jobs at that pace
 2. Task Tower will check the queue at an interval of `QueueAnnouncementInterval` based on whatever prioritization strategy has been configured and announce jobs for processing using Postges' `pg_notify`
-3. Task Tower will be listening for announced jobs and process them
+3. Task Tower will be listening for announced jobs and pick them up for processing
+4. Once a job is picked up it will be marked a `Processing` until finished running
+   1. Jobs that are stopped mid-processing will be re-queued when starting up
+
+5. Once finished a job will be marked as:
+   1. `Completed` if successful
+   2. `Failed` if failed with retries remaining
+   3. ` Dead` if failed with no retries remaining
+
 
 ## Benchmarks
 
