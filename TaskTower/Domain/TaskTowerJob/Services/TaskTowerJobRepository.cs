@@ -50,10 +50,11 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
         {
             sqlWhereBuilder.Append(sqlWhereBuilder.Length > 0 ? "AND " : "WHERE ");
             sqlWhereBuilder.Append("""
-                                   (LOWER(job_name) ILIKE(LOWER( @FilterText)) 
+                                   (LOWER(job_name) ILIKE LOWER(@FilterText)
                                    OR LOWER(payload::text) ILIKE LOWER(@FilterText) 
                                    OR LOWER(queue) ILIKE LOWER(@FilterText) 
-                                   OR LOWER(id::text) ILIKE LOWER(@FilterText)) 
+                                   OR LOWER(j.id::text) ILIKE LOWER(@FilterText)
+                                   OR LOWER(t.name) ILIKE LOWER(@FilterText))
                                    """);
             parameters.Add("FilterText", $"%{filterText}%");
         }
@@ -66,7 +67,7 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
 
         var sql = @$"
     SELECT
-        id as Id, 
+        j.id as Id, 
         queue as Queue, 
         type as Type, 
         method as Method,
@@ -81,17 +82,21 @@ internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITas
         retries as Retries,
         context_parameters as ContextParameters,
         job_name as JobName 
-    FROM {MigrationConfig.SchemaName}.jobs
+    FROM {MigrationConfig.SchemaName}.jobs j 
+        LEFT JOIN {MigrationConfig.SchemaName}.tags t ON t.job_id = j.id
     {sqlWhereBuilder}
+    GROUP BY j.id
     ORDER BY created_at DESC
     OFFSET @Offset ROWS
     FETCH NEXT @PageSize ROWS ONLY";
         var jobs = await conn.QueryAsync<TaskTowerJob>(sql, parameters);
 
-        var totalJobCount = await conn.ExecuteScalarAsync<int>(@$"
-    SELECT COUNT(*)
-    FROM {MigrationConfig.SchemaName}.jobs
-    {sqlWhereBuilder}", parameters);
+        var totalSql = @$"
+    SELECT COUNT(DISTINCT j.id)
+    FROM {MigrationConfig.SchemaName}.jobs j
+        LEFT JOIN {MigrationConfig.SchemaName}.tags t ON t.job_id = j.id
+    {sqlWhereBuilder}";
+        var totalJobCount = await conn.QuerySingleAsync<int>(totalSql, parameters);
 
         var pagedList = new PagedList<TaskTowerJob>(jobs.ToList(), totalJobCount, pageNumber, pageSize);
         return pagedList;
@@ -164,7 +169,7 @@ VALUES (@Id,
         var queueNames = await conn.QueryAsync<string>(
             @$"
 SELECT DISTINCT queue
-FROM {MigrationConfig.SchemaName}.jobs
+FROM {MigrationConfig.SchemaName}.jobs j
 ORDER BY queue");
         return queueNames.ToList();
     }
