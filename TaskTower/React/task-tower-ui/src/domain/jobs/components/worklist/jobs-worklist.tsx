@@ -133,9 +133,6 @@ export function JobsWorklist<TData, TValue>({
             setPageNumber={setPageNumber}
             orientation="right"
           />
-          <div className="px-3">
-            <button onClick={() => {}}>Alert Row Selection</button>
-          </div>
         </div>
         <div className="pt-2" />
         <Table>
