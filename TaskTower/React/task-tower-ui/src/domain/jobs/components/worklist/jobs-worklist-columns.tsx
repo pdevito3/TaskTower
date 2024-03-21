@@ -111,11 +111,7 @@ export const createColumns = (): Columns[] => [
   {
     accessorKey: "retriesRemaining",
     header: ({ column }) => (
-      <DataTableColumnHeader
-        column={column}
-        title="Retries Remaining"
-        canSort={false}
-      />
+      <DataTableColumnHeader column={column} title="Retry" canSort={false} />
     ),
     cell: ({ row }) => {
       const maxRetries = row.getValue("maxRetries") as number;
@@ -128,11 +124,7 @@ export const createColumns = (): Columns[] => [
 
       const retriesRemaining = maxRetries - retries;
 
-      return (
-        <p>
-          {retriesRemaining >= 0 ? `${retriesRemaining}/${maxRetries}` : "—"}
-        </p>
-      );
+      return <p>{retriesRemaining >= 0 ? `${retries}/${maxRetries}` : "—"}</p>;
     },
   },
   {
