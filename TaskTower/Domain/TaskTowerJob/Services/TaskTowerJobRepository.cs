@@ -4,6 +4,7 @@ using System.Text;
 using Configurations;
 using Dapper;
 using Database;
+using Dtos;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Resources;
@@ -18,6 +19,7 @@ public interface ITaskTowerJobRepository
     Task AddJob(TaskTowerJob job, CancellationToken cancellationToken = default);
     Task<List<string>> GetQueueNames(CancellationToken cancellationToken = default);
     Task BulkDeleteJobs(Guid[] jobIds, CancellationToken cancellationToken = default);
+    Task<TaskTowerJobWithTagsView?> GetJobView(Guid jobId, CancellationToken cancellationToken = default);
 }
 
 internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
@@ -189,5 +191,37 @@ WHERE job_id IN ({commaSeparatedSingleQuotedJobIds});
 
 DELETE FROM {MigrationConfig.SchemaName}.jobs
 WHERE id IN ({commaSeparatedSingleQuotedJobIds});");
+    }
+    
+    public async Task<TaskTowerJobWithTagsView?> GetJobView(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(options.Value.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+        var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJobWithTagsView>(
+            @$"
+SELECT
+    j.id as Id, 
+    queue as Queue, 
+    type as Type, 
+    method as Method,
+    parameter_types as ParameterTypes,
+    payload as Payload,
+    max_retries as MaxRetries,
+    run_after as RunAfter,
+    ran_at as RanAt,
+    deadline as Deadline,
+    created_at as CreatedAt,
+    status as Status,
+    retries as Retries,
+    context_parameters as ContextParameters,
+    job_name as JobName,
+    COALESCE(STRING_AGG(t.name, ', '), null) AS TagNames
+FROM {MigrationConfig.SchemaName}.jobs j
+    LEFT JOIN {MigrationConfig.SchemaName}.tags t ON t.job_id = j.id
+WHERE j.id = @JobId
+GROUP BY j.id",
+            new {JobId = jobId});
+        
+        return job;
     }
 }

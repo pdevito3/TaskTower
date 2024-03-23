@@ -7,6 +7,7 @@ using Dapper;
 using Database;
 using Domain.TaskTowerJob;
 using Domain.TaskTowerJob.Models;
+using Exceptions;
 using Interception;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -248,10 +249,17 @@ public class BackgroundJobClient : IBackgroundJobClient
     
     public IBackgroundJobClient TagJob(Guid jobId, IEnumerable<string> tags)
     {
+        var tagList = tags.ToList();
+        var firstInvalidTag = tagList.FirstOrDefault(tag => tag.Contains(','));
+        if (firstInvalidTag != null)
+        {
+            throw new InvalidTaskTowerTagException(firstInvalidTag);
+        }
+        
         using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         conn.Open();
         
-        foreach (var tag in tags)
+        foreach (var tag in tagList)
         {
             InsertTag(jobId, conn, tag, _logger);
         }
@@ -261,6 +269,11 @@ public class BackgroundJobClient : IBackgroundJobClient
 
     public IBackgroundJobClient TagJob(Guid jobId, string tag)
     {
+        if (tag.Contains(','))
+        {
+            throw new InvalidTaskTowerTagException(tag);
+        }
+        
         using var conn = new NpgsqlConnection(_options.Value?.ConnectionString);
         conn.Open();
         InsertTag(jobId, conn, tag, _logger);

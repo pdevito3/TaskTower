@@ -5,6 +5,8 @@ using Dapper;
 using Database;
 using Domain.JobStatuses;
 using Domain.JobStatuses.Mappings;
+using Domain.RunHistories.Services;
+using Domain.TaskTowerJob.Features;
 using Domain.TaskTowerJob.Services;
 using FluentMigrator.Runner;
 using Interception;
@@ -52,6 +54,8 @@ public static class TaskTowerServiceRegistration
         SqlMapper.AddTypeHandler(typeof(JobStatus), new JobStatusTypeHandler());
         
         services.AddScoped<ITaskTowerJobRepository, TaskTowerJobRepository>();
+        services.AddScoped<IJobRunHistoryRepository, JobRunHistoryRepository>();
+        services.AddScoped<IJobViewer, JobViewer>();
         services.AddScoped<IBackgroundJobClient, BackgroundJobClient>();
         services.AddScoped<ITaskTowerRunnerContext, TaskTowerRunnerContext>();
 

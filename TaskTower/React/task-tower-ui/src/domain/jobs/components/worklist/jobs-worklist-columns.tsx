@@ -109,9 +109,9 @@ export const createColumns = (): Columns[] => [
     header: "Max Retries",
   },
   {
-    accessorKey: "retriesRemaining",
+    accessorKey: "retried",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Retry" canSort={false} />
+      <DataTableColumnHeader column={column} title="Retried" canSort={false} />
     ),
     cell: ({ row }) => {
       const maxRetries = row.getValue("maxRetries") as number;

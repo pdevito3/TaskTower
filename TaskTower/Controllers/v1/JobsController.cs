@@ -8,6 +8,7 @@ using Configurations;
 using Dapper;
 using Database;
 using Domain.TaskTowerJob.Dtos;
+using Domain.TaskTowerJob.Features;
 using Domain.TaskTowerJob.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -15,7 +16,7 @@ using Npgsql;
 
 [ApiController]
 [Route("api/v1/jobs")]
-public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : ControllerBase
+public class JobsController(ITaskTowerJobRepository taskTowerJobRepository, IJobViewer jobViewer) : ControllerBase
 {
     [HttpGet("paginated")]
     [ApiExplorerSettings(IgnoreApi = true)]
@@ -79,5 +80,13 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository) : Co
     {
         await taskTowerJobRepository.BulkDeleteJobs(request.JobIds);
         return NoContent();
+    }
+    
+    [HttpGet("{jobId:guid}/view")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> GetJobView(Guid jobId)
+    {
+        var jobView = await jobViewer.GetJobView(jobId);
+        return Ok(jobView);
     }
 }

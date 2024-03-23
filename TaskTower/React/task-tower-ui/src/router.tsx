@@ -14,7 +14,7 @@ import {
 } from "@tanstack/react-router";
 import { Helmet } from "react-helmet";
 import { z } from "zod";
-import { EditJobPage } from "./pages/jobs/edit-job-page";
+import { JobViewPage } from "./pages/jobs/view-job-page";
 import { isProdEnv } from "./utils";
 
 const appRoute = createRootRoute({
@@ -136,7 +136,7 @@ const jobRoute = createRoute({
   parseParams: (params) => ({
     jobId: z.string().uuid().parse(params.jobId),
   }),
-  component: EditJobPage,
+  component: JobViewPage,
 });
 
 const routeTree = appRoute.addChildren([
