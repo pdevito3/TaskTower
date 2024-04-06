@@ -25,8 +25,9 @@ public class JobNotificationListener : BackgroundService
     private readonly SemaphoreSlim _semaphore;
     private readonly TaskTowerOptions _options;
     private readonly ILogger _logger;
-    private Timer _timer = null!;
-
+    private Guid _workerId = Guid.NewGuid();
+    private const string _announcingSqlComment = "This query will commit the transaction for announcing jobs.";
+    private const string _enqueuingSqlComment = "This query will commit the transaction for enqueuing jobs.";
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
@@ -94,11 +95,11 @@ public class JobNotificationListener : BackgroundService
         var enqueuedJobsInterval = NormalizeInterval(_options.QueueAnnouncementInterval);
         _logger.LogInformation("Polling for scheduled jobs every {PollingInterval}", scheduledJobsInterval);
         _logger.LogInformation("Polling for queue announcements every {PollingInterval}", enqueuedJobsInterval);
-        var scheduledJobsTime = new PeriodicTimer(scheduledJobsInterval);
+        var scheduledJobsTimer = new PeriodicTimer(scheduledJobsInterval);
         var enqueuedJobsTimer = new PeriodicTimer(enqueuedJobsInterval);
 
         _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
-        _ = PollingScheduledJobsAsync(scheduledJobsTime, stoppingToken);
+        _ = PollingScheduledJobsAsync(scheduledJobsTimer, stoppingToken);
 
         // // Keep the service running until a cancellation request is received
         while (!stoppingToken.IsCancellationRequested)
@@ -255,27 +256,67 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         var queuePrioritization = _options.QueuePrioritization;
         var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn, tx, 
             _options.QueuePriorities);
+        var scheduledJobsList = scheduledJobs?.ToList() ?? new List<TaskTowerJob>();
         
-        foreach (var job in scheduledJobs)
+        var updateQuery = $"""
+                               UPDATE {MigrationConfig.SchemaName}.jobs
+                               SET status = @Status
+                               WHERE id = ANY(@JobIds);
+                           """;
+        await conn.ExecuteAsync(updateQuery, new 
+        { 
+            Status = JobStatus.Enqueued().Value, 
+            JobIds = scheduledJobsList
+                .Select(j => j.Id)
+                .ToArray() 
+        }, transaction: tx);
+        
+        var runHistories = scheduledJobsList.Select(job => new
         {
-            // TODO use domain model
-            await conn.ExecuteAsync(
-                $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status WHERE id = @Id",
-                new { job.Id, Status = JobStatus.Enqueued().Value },
-                transaction: tx
-            );
-            
-            var runHistory = RunHistory.Create(new RunHistoryForCreation()
-            {
-                JobId = job.Id,
-                Status = JobStatus.Enqueued()
-            });
-            await AddRunHistory(conn, runHistory, tx);
-            
-            _logger.LogDebug("Enqueued job {JobId} to the {Queue} queue", job.Id, job.Queue);
+            Id = Guid.NewGuid(), // Assuming you generate new Guids for each history
+            JobId = job.Id,
+            Status = JobStatus.Enqueued().Value,
+            OccurredAt = DateTime.UtcNow // Assuming you use the current UTC time
+        }).ToList();
+
+        var insertQuery = $"""
+                               INSERT INTO {MigrationConfig.SchemaName}.run_histories (id, job_id, status, comment, details, occurred_at)
+                               VALUES {string.Join(", ", runHistories.Select((_, index) => $"(@Id{index}, @JobId{index}, @Status{index}, @OccurredAt{index})"))}
+                           """;
+        
+        var parameters = new DynamicParameters();
+        for (var i = 0; i < runHistories.Count; i++)
+        {
+            parameters.Add($"Id{i}", runHistories[i].Id);
+            parameters.Add($"JobId{i}", runHistories[i].JobId);
+            parameters.Add($"Status{i}", runHistories[i].Status);
+            parameters.Add($"OccurredAt{i}", runHistories[i].OccurredAt);
         }
-    
-        await tx.CommitAsync(stoppingToken);
+        await conn.ExecuteAsync(insertQuery, parameters, transaction: tx);
+        
+        try
+        {
+            // await tx.CommitAsync(stoppingToken);
+            await conn.ExecuteAsync($"""
+                                    /*
+                                     * {_enqueuingSqlComment}
+                                     */
+                                    COMMIT;
+                                    """, transaction: tx);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while committing transaction for enqueuing jobs");
+
+            try
+            {
+                await tx.RollbackAsync(stoppingToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for enqueuing jobs");
+            }
+        }
     }
 
     private async Task<Guid?> MarkJobAsProcessing(IServiceProvider serviceProvider, CancellationToken stoppingToken)
@@ -619,7 +660,7 @@ LIMIT 1",
 
     public override void Dispose()
     {
-        _logger.LogDebug("Task Tower worker is shutting down");
+        _logger.LogWarning("Task Tower worker {Worker} is shutting down", _workerId);
         _semaphore.Dispose();
         base.Dispose();
         GC.SuppressFinalize(this);
