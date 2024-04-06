@@ -87,27 +87,21 @@ const appRoute = createRootRoute({
   },
 });
 
-// const redirectIndexRoute = createRoute({
-//   getParentRoute: () => appRoute,
-//   path: "/",
-//   loader: () => {
-//     throw redirect({
-//       to: "/tasktower",
-//     });
-//   },
-// });
+export const rootRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/",
+  // component: IndexPage,
+  loader: () => {
+    router.navigate({
+      to: "/tasktower",
+    });
+  },
+});
 
 const authLayout = createRoute({
   getParentRoute: () => appRoute,
   path: "/tasktower",
   component: AuthLayout,
-  // component: () => {
-  //   return (
-  //     <div className="p-8">
-  //       <Outlet />
-  //     </div>
-  //   );
-  // },
 });
 
 export const dashboardRoute = createRoute({
@@ -141,6 +135,7 @@ const jobRoute = createRoute({
 
 const routeTree = appRoute.addChildren([
   authLayout.addChildren([
+    rootRoute,
     dashboardRoute,
     jobsRoute.addChildren([jobWorklistRoute, jobRoute]),
   ]),
