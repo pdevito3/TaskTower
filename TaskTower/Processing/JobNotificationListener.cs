@@ -179,8 +179,24 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             anonymousRunHistories,
             transaction: tx
         );
-        
-        await tx.CommitAsync(stoppingToken);
+
+        try
+        {
+            await tx.CommitAsync(stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while committing transaction for requeuing jobs");
+
+            try
+            {
+                await tx.RollbackAsync(stoppingToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for requeuing jobs");
+            }
+        }
     }
 
     private TimeSpan NormalizeInterval(TimeSpan interval)
@@ -334,16 +350,32 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         {
             try
             {
-                serviceProvider = PerformPreprocessing(serviceProvider, job);
-                await MarkAsProcessing(job, conn, tx);
+                try
+                {
+                    serviceProvider = PerformPreprocessing(serviceProvider, job);
+                    await MarkAsProcessing(job, conn, tx);
+                }
+                catch (Exception ex)
+                {
+                    errorDetails = await HandleFailure(job, conn, tx, ex);
+                }
+                finally
+                {
+                    await tx.CommitAsync(stoppingToken);
+                }
             }
             catch (Exception ex)
             {
-                errorDetails = await HandleFailure(job, conn, tx, ex);
-            }
-            finally
-            {
-                await tx.CommitAsync(stoppingToken);
+                _logger.LogError(ex, "An error occurred while marking job {JobId} from queue {Queue} with payload {Payload} as processing -- rolling back transaction", job.Id, job.Queue, job.Payload);
+
+                try
+                {
+                    await tx.RollbackAsync(stoppingToken);
+                }
+                catch (Exception rollbackEx)
+                {
+                    _logger.LogError(rollbackEx, "An error occurred during transaction rollback for marking job {JobId} as processing from queue {Queue} with payload {Payload} at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+                }
             }
             
             if (job.Status.IsDead())
@@ -478,30 +510,46 @@ LIMIT 1",
 
         try
         {
-            await job.Invoke(serviceProvider);
-
-            var nowDone = DateTimeOffset.UtcNow;
-            await conn.ExecuteAsync(
-                $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
-                new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
-                transaction: tx
-            );
-
-            var runHistory = RunHistory.Create(new RunHistoryForCreation()
+            try
             {
-                JobId = job.Id,
-                Status = JobStatus.Completed(),
-                OccurredAt = nowDone
-            });
-            await AddRunHistory(conn, runHistory, tx);
+                await job.Invoke(serviceProvider);
+
+                var nowDone = DateTimeOffset.UtcNow;
+                await conn.ExecuteAsync(
+                    $"UPDATE {MigrationConfig.SchemaName}.jobs SET status = @Status, ran_at = @Now WHERE id = @Id",
+                    new { job.Id, Status = JobStatus.Completed().Value, Now = nowDone },
+                    transaction: tx
+                );
+
+                var runHistory = RunHistory.Create(new RunHistoryForCreation()
+                {
+                    JobId = job.Id,
+                    Status = JobStatus.Completed(),
+                    OccurredAt = nowDone
+                });
+                await AddRunHistory(conn, runHistory, tx);
+            }
+            catch (Exception ex)
+            {
+                errorDetails = await HandleFailure(job, conn, tx, ex);
+            }
+            finally
+            {
+                await tx.CommitAsync(stoppingToken);
+            }
         }
         catch (Exception ex)
         {
-            errorDetails = await HandleFailure(job, conn, tx, ex);
-        }
-        finally
-        {
-            await tx.CommitAsync(stoppingToken);
+            _logger.LogError(ex, "An error occurred while processing job {JobId} from queue {JobQueue} with payload {JobPayload} at {Now} -- rolling back transaction", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+
+            try
+            {
+                await tx.RollbackAsync(stoppingToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for job {JobId} from queue {Queue} with payload {Payload} at {Time}", job.Id, job.Queue, job.Payload, DateTimeOffset.UtcNow.ToString("o"));
+            }
         }
 
         if (job.Status.IsDead())
