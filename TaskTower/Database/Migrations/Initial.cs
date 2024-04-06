@@ -45,6 +45,8 @@ public class Initial : Migration
 
         Create.Index("ix_jobs_run_after").OnTable("jobs").InSchema(schemaName).OnColumn("run_after");
         Create.Index("ix_jobs_status").OnTable("jobs").InSchema(schemaName).OnColumn("status");
+        Create.Index("ix_jobs_queue").OnTable("jobs").InSchema(schemaName).OnColumn("queue");
+        Create.Index("ix_jobs_id").OnTable("jobs").InSchema(schemaName).OnColumn("id");
         Create.Index("ix_run_histories_job_id").OnTable("run_histories").InSchema(schemaName).OnColumn("job_id");
         Create.Index("ix_run_histories_status").OnTable("run_histories").InSchema(schemaName).OnColumn("status");
         Create.Index("ix_tags_name").OnTable("tags").InSchema(schemaName).OnColumn("name");
