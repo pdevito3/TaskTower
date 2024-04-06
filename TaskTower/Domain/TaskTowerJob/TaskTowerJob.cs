@@ -17,7 +17,7 @@ public class TaskTowerJob
     /// <summary>
     /// The queue the job is on
     /// </summary>
-    public string? Queue { get; private set; }
+    public string Queue { get; private set; }
 
     /// <summary>
     /// The current status of the job

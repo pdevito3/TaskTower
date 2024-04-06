@@ -97,7 +97,7 @@ public class QueuePrioritization : ValueObject
       AND run_after <= @Now
     ORDER BY run_after 
     FOR UPDATE SKIP LOCKED 
-    LIMIT 8000",
+    LIMIT 1000",
                     new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
                     transaction: tx
                 );
@@ -148,7 +148,7 @@ WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
 ORDER BY queue, run_after 
 FOR UPDATE SKIP LOCKED 
-LIMIT 8000",
+LIMIT 1000",
                     new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
                     transaction: tx
                 );
@@ -212,7 +212,7 @@ WHERE (status = @Pending OR (status = @Failed AND retries < max_retries))
   AND run_after <= @Now
 ORDER BY {priorityCaseSql} 
 FOR UPDATE SKIP LOCKED 
-LIMIT 8000",
+LIMIT 1000",
                     new { Now = now, Pending = JobStatus.Pending().Value, Failed = JobStatus.Failed().Value },
                     transaction: tx
                 );
@@ -326,7 +326,7 @@ WHERE
 ORDER BY
     j.run_after
 FOR UPDATE SKIP LOCKED
-LIMIT 8000;";
+LIMIT 1000;";
 
                 var now = DateTimeOffset.UtcNow;
                 var jobs = await conn.QueryAsync<TaskTowerJob>(

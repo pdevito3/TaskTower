@@ -27,7 +27,7 @@ public class JobNotificationListener : BackgroundService
     private readonly ILogger _logger;
     private Guid _workerId = Guid.NewGuid();
     private const string _announcingSqlComment = "This query will commit the transaction for announcing jobs.";
-    private const string _enqueuingSqlComment = "This query will commit the transaction for enqueuing jobs.";
+    
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
@@ -258,8 +258,6 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             _logger.LogDebug("Announced job {JobId} to {Channel} channel from the queue {Queue}", 
                 enqueuedJob.Id, TaskTowerConstants.Notifications.JobAvailable, enqueuedJob.Queue);
         }
-        
-        await tx.CommitAsync(stoppingToken);
     }
     
     private async Task EnqueueScheduledJobs(CancellationToken stoppingToken)
@@ -312,13 +310,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         try
         {
-            // await tx.CommitAsync(stoppingToken);
-            await conn.ExecuteAsync($"""
-                                    /*
-                                     * {_enqueuingSqlComment}
-                                     */
-                                    COMMIT;
-                                    """, transaction: tx);
+            await tx.CommitAsync(stoppingToken);
         }
         catch (Exception ex)
         {
