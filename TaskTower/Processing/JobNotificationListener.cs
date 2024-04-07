@@ -279,6 +279,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
                 return;
             }
             
+            _logger.LogDebug("Enqueuing {Count} scheduled jobs", scheduledJobsList.Count);
             var updateQuery = $"""
                                    UPDATE {MigrationConfig.SchemaName}.jobs
                                    SET status = @Status
