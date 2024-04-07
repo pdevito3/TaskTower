@@ -33,12 +33,6 @@ public class TaskTowerOptions
     /// </summary>
     public TimeSpan QueueAnnouncementInterval { get; set; } = TimeSpan.FromSeconds(1);
     
-    // TODO implement this
-    /// <summary>
-    /// Time duration between current time and job.RunAfter that schedule for future jobs
-    /// </summary>
-    public TimeSpan FutureJobWindow { get; set; } = TimeSpan.FromSeconds(30);
-    
     /// <summary>
     /// The number of milliseconds a postgres transaction may idle before the connection is killed
     /// </summary>
