@@ -287,14 +287,14 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         var runHistories = scheduledJobsList.Select(job => new
         {
-            Id = Guid.NewGuid(), // Assuming you generate new Guids for each history
+            Id = Guid.NewGuid(),
             JobId = job.Id,
             Status = JobStatus.Enqueued().Value,
-            OccurredAt = DateTime.UtcNow // Assuming you use the current UTC time
+            OccurredAt = DateTime.UtcNow
         }).ToList();
 
         var insertQuery = $"""
-                               INSERT INTO {MigrationConfig.SchemaName}.run_histories (id, job_id, status, comment, details, occurred_at)
+                               INSERT INTO {MigrationConfig.SchemaName}.run_histories (id, job_id, status, occurred_at)
                                VALUES {string.Join(", ", runHistories.Select((_, index) => $"(@Id{index}, @JobId{index}, @Status{index}, @OccurredAt{index})"))}
                            """;
         
