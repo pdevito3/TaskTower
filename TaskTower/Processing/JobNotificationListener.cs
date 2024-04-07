@@ -246,13 +246,43 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
         var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
-
-        foreach (var enqueuedJob in enqueuedJobs)
+        try
         {
+            // await tx.CommitAsync(stoppingToken);
+             await conn.ExecuteAsync($"""
+                                      /*
+                                       * {_announcingSqlComment}
+                                       */
+                                      COMMIT;
+                                      """, transaction: tx);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while committing transaction for getting announcable jobs");
+
+            try
+            {
+                await tx.RollbackAsync(stoppingToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for getting announcable jobs");
+            }
+        }
+        
+        var enqueuedJobsList = enqueuedJobs?.ToList() ?? new List<TaskTowerJob>();
+        foreach (var enqueuedJob in enqueuedJobsList)
+        {
+            await using var connAnnounce = new NpgsqlConnection(_options.ConnectionString);
+            await connAnnounce.OpenAsync(stoppingToken);
             var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.Id);
-            await conn.ExecuteAsync($"SELECT pg_notify(@Notification, @Payload)",
-                new { Notification = TaskTowerConstants.Notifications.JobAvailable, Payload = notifyPayload },
-                transaction: tx
+            await connAnnounce.ExecuteAsync("""
+                                    /* 
+                                     * This query will notify the channel that a job is available for processing.
+                                     */
+                                    SELECT pg_notify(@Notification, @Payload);
+                                    """,
+                new { Notification = TaskTowerConstants.Notifications.JobAvailable, Payload = notifyPayload }
             );
             
             _logger.LogDebug("Announced job {JobId} to {Channel} channel from the queue {Queue}", 
