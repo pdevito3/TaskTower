@@ -97,7 +97,7 @@ function HistoryList({ jobData }: { jobData: TaskTowerJobView }) {
           {history.status === "Failed" ? (
             <FailureNode history={history} />
           ) : (
-            <NormalNode history={history} />
+            <NormalNode history={history} isCurrentState={historyIndex === 0} />
           )}
         </li>
       ))}
@@ -107,12 +107,20 @@ function HistoryList({ jobData }: { jobData: TaskTowerJobView }) {
 
 type HistoryItem = TaskTowerJobView["history"][0];
 
-function NormalNode({ history }: { history: HistoryItem }) {
+function NormalNode({
+  history,
+  isCurrentState,
+}: {
+  history: HistoryItem;
+  isCurrentState: boolean;
+}) {
   return (
     <>
       <div className="relative flex h-6 w-6 flex-none items-center justify-center bg-white">
         {history.status === "Completed" ? (
-          <CheckIcon className="h-6 w-6 text-indigo-600" aria-hidden="true" />
+          <CheckIcon className="h-6 w-6 text-emerald-600" aria-hidden="true" />
+        ) : isCurrentState ? (
+          <div className="h-1.5 w-1.5 rounded-full bg-emerald-200 ring-1 ring-emerald-400 animate-pulse" />
         ) : (
           <div className="h-1.5 w-1.5 rounded-full bg-gray-100 ring-1 ring-gray-300" />
         )}

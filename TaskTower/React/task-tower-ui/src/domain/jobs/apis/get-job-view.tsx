@@ -20,5 +20,13 @@ export const useGetJobView = (jobId: string) => {
     enabled: !!jobId,
     gcTime: 0,
     staleTime: 0,
+    refetchInterval: (data) => {
+      const status = data.state?.data?.job.status;
+      return status === "Processing" ||
+        status === "Pending" ||
+        status === "Enqueued"
+        ? 3000
+        : false;
+    },
   });
 };
