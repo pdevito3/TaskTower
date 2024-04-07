@@ -25,7 +25,7 @@ public class JobNotificationListener : BackgroundService
     private readonly SemaphoreSlim _semaphore;
     private readonly TaskTowerOptions _options;
     private readonly ILogger _logger;
-    private Guid _workerId = Guid.NewGuid();
+    private readonly Guid _workerId = Guid.NewGuid();
     private const string _announcingSqlComment = "This query will commit the transaction for announcing jobs.";
     
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
@@ -267,46 +267,58 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
 
-        var queuePrioritization = _options.QueuePrioritization;
-        var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn, tx, 
-            _options.QueuePriorities);
-        var scheduledJobsList = scheduledJobs?.ToList() ?? new List<TaskTowerJob>();
-        
-        var updateQuery = $"""
-                               UPDATE {MigrationConfig.SchemaName}.jobs
-                               SET status = @Status
-                               WHERE id = ANY(@JobIds);
-                           """;
-        await conn.ExecuteAsync(updateQuery, new 
-        { 
-            Status = JobStatus.Enqueued().Value, 
-            JobIds = scheduledJobsList
-                .Select(j => j.Id)
-                .ToArray() 
-        }, transaction: tx);
-        
-        var runHistories = scheduledJobsList.Select(job => new
+        try
         {
-            Id = Guid.NewGuid(),
-            JobId = job.Id,
-            Status = JobStatus.Enqueued().Value,
-            OccurredAt = DateTime.UtcNow
-        }).ToList();
+            var queuePrioritization = _options.QueuePrioritization;
+            var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn, tx, 
+                _options.QueuePriorities);
+            var scheduledJobsList = scheduledJobs?.ToList() ?? new List<TaskTowerJob>();
+            
+            if (scheduledJobsList.Count == 0)
+            {
+                return;
+            }
+            
+            var updateQuery = $"""
+                                   UPDATE {MigrationConfig.SchemaName}.jobs
+                                   SET status = @Status
+                                   WHERE id = ANY(@JobIds);
+                               """;
+            await conn.ExecuteAsync(updateQuery, new 
+            { 
+                Status = JobStatus.Enqueued().Value, 
+                JobIds = scheduledJobsList
+                    .Select(j => j.Id)
+                    .ToArray() 
+            }, transaction: tx);
+            
+            var runHistories = scheduledJobsList.Select(job => new
+            {
+                Id = Guid.NewGuid(),
+                JobId = job.Id,
+                Status = JobStatus.Enqueued().Value,
+                OccurredAt = DateTime.UtcNow
+            }).ToList();
 
-        var insertQuery = $"""
-                               INSERT INTO {MigrationConfig.SchemaName}.run_histories (id, job_id, status, occurred_at)
-                               VALUES {string.Join(", ", runHistories.Select((_, index) => $"(@Id{index}, @JobId{index}, @Status{index}, @OccurredAt{index})"))}
-                           """;
-        
-        var parameters = new DynamicParameters();
-        for (var i = 0; i < runHistories.Count; i++)
-        {
-            parameters.Add($"Id{i}", runHistories[i].Id);
-            parameters.Add($"JobId{i}", runHistories[i].JobId);
-            parameters.Add($"Status{i}", runHistories[i].Status);
-            parameters.Add($"OccurredAt{i}", runHistories[i].OccurredAt);
+            var insertQuery = $"""
+                                   INSERT INTO {MigrationConfig.SchemaName}.run_histories (id, job_id, status, occurred_at)
+                                   VALUES {string.Join(", ", runHistories.Select((_, index) => $"(@Id{index}, @JobId{index}, @Status{index}, @OccurredAt{index})"))}
+                               """;
+            
+            var parameters = new DynamicParameters();
+            for (var i = 0; i < runHistories.Count; i++)
+            {
+                parameters.Add($"Id{i}", runHistories[i].Id);
+                parameters.Add($"JobId{i}", runHistories[i].JobId);
+                parameters.Add($"Status{i}", runHistories[i].Status);
+                parameters.Add($"OccurredAt{i}", runHistories[i].OccurredAt);
+            }
+            await conn.ExecuteAsync(insertQuery, parameters, transaction: tx);
         }
-        await conn.ExecuteAsync(insertQuery, parameters, transaction: tx);
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while enqueuing scheduled jobs");
+        }
         
         try
         {
