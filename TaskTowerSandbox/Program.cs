@@ -16,7 +16,7 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .MinimumLevel.Override("MassTransit", LogEventLevel.Debug)
-    .MinimumLevel.Override("TaskTower", LogEventLevel.Information)
+    .MinimumLevel.Override("TaskTower", LogEventLevel.Debug)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting", LogEventLevel.Information)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
