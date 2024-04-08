@@ -28,7 +28,6 @@ public class JobNotificationListener : BackgroundService
     private readonly TaskTowerOptions _options;
     private readonly ILogger _logger;
     private readonly Guid _workerId = Guid.NewGuid();
-    private const string _announcingSqlComment = "This query will commit the transaction for announcing jobs.";
     
     public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
     {
@@ -245,48 +244,26 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
         
-        await using var tx = await conn.BeginTransactionAsync(stoppingToken);
-        
-        var enqueuedJobsList = new List<TaskTowerJob>();
-        try
+        var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, queuePriorities, 8000);
+        var enqueuedJobsList = enqueuedJobs?.ToList() ?? new List<TaskTowerJob>();
+        if (enqueuedJobsList is not { Count: > 0 })
         {
-            var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
-            var jobsList = enqueuedJobs?.ToList();
-            if (jobsList is not { Count: > 0 })
-            {
-                return;
-            }
-            _logger.LogDebug("Announcing {Count} jobs", jobsList.Count);
-            enqueuedJobsList = jobsList ?? new List<TaskTowerJob>();   
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while committing transaction for getting announcable jobs");
-
-            try
-            {
-                await tx.RollbackAsync(stoppingToken);
-            }
-            catch (Exception rollbackEx)
-            {
-                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for getting announcable jobs");
-            }
-        }
-        
+        _logger.LogDebug("Announcing {Count} jobs", enqueuedJobsList.Count);
+    
         foreach (var enqueuedJob in enqueuedJobsList)
         {
-            await using var connAnnounce = new NpgsqlConnection(_options.ConnectionString);
-            await connAnnounce.OpenAsync(stoppingToken);
             var notifyPayload = NotificationHelper.CreatePayload(enqueuedJob.Queue, enqueuedJob.Id);
-            await connAnnounce.ExecuteAsync("""
-                                    /* 
+            await conn.ExecuteAsync("""
+                                    /*
                                      * This query will notify the channel that a job is available for processing.
                                      */
                                     SELECT pg_notify(@Notification, @Payload);
                                     """,
                 new { Notification = TaskTowerConstants.Notifications.JobAvailable, Payload = notifyPayload }
             );
-            
+        
             _logger.LogDebug("Announced job {JobId} to {Channel} channel from the queue {Queue}", 
                 enqueuedJob.Id, TaskTowerConstants.Notifications.JobAvailable, enqueuedJob.Queue);
         }
@@ -308,6 +285,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             
             if (scheduledJobsList.Count == 0)
             {
+                await tx.CommitAsync(stoppingToken);
                 return;
             }
             

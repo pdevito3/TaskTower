@@ -47,9 +47,8 @@ public class QueuePrioritization : ValueObject
         NpgsqlTransaction tx,
         Dictionary<string, int> queuePriorities) => await _priority.GetJobToRun(conn, tx, queuePriorities);
     public async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
-        NpgsqlTransaction tx,
         Dictionary<string, int> queuePriorities,
-        int limit) => await _priority.GetEnqueuedJobs(conn, tx, queuePriorities, limit);
+        int limit) => await _priority.GetEnqueuedJobs(conn, queuePriorities, limit);
 
     protected QueuePrioritization() { } // EF Core
 
@@ -70,7 +69,6 @@ public class QueuePrioritization : ValueObject
             Dictionary<string, int> queuePriorities);
         
         public abstract Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
-            NpgsqlTransaction tx,
             Dictionary<string, int> queuePriorities,
             int limit);
         
@@ -105,7 +103,6 @@ public class QueuePrioritization : ValueObject
             }
 
             public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
-                NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
@@ -117,8 +114,7 @@ public class QueuePrioritization : ValueObject
     ORDER BY run_after 
     FOR UPDATE SKIP LOCKED
     LIMIT {limit}",
-                    new { Enqueued = JobStatus.Enqueued().Value },
-                    transaction: tx
+                    new { Enqueued = JobStatus.Enqueued().Value }
                 );
             }
 
@@ -157,7 +153,6 @@ LIMIT 1000",
             }
 
             public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
-                NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
@@ -169,8 +164,7 @@ WHERE status = @Enqueued
 ORDER BY queue, run_after 
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
-                    new { Enqueued = JobStatus.Enqueued().Value },
-                    transaction: tx
+                    new { Enqueued = JobStatus.Enqueued().Value }
                 );
             }
 
@@ -221,7 +215,6 @@ LIMIT 1000",
             }
 
             public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
-                NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
@@ -247,8 +240,7 @@ WHERE status = @Enqueued
 ORDER BY {priorityCaseSql}
 FOR UPDATE SKIP LOCKED
 LIMIT {limit}",
-                    new { Enqueued = JobStatus.Enqueued().Value },
-                    transaction: tx
+                    new { Enqueued = JobStatus.Enqueued().Value }
                 );
             }
 
@@ -272,7 +264,6 @@ LIMIT {limit}",
             }
             
             public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn,
-                NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
@@ -339,7 +330,6 @@ LIMIT 1000;";
             }
 
             public override async Task<IEnumerable<TaskTowerJob>> GetEnqueuedJobs(NpgsqlConnection conn, 
-                NpgsqlTransaction tx,
                 Dictionary<string, int> queuePriorities,
                 int limit)
             {
@@ -370,8 +360,7 @@ LIMIT {limit};";
                 
                     return await conn.QueryAsync<TaskTowerJob>(
                         sqlQuery,
-                        new { Enqueued = JobStatus.Enqueued().Value },
-                        transaction: tx
+                        new { Enqueued = JobStatus.Enqueued().Value }
                     );
             }
 
@@ -383,7 +372,7 @@ LIMIT {limit};";
 
         private async Task<TaskTowerJob?> GetJobToRunBase(NpgsqlConnection conn, NpgsqlTransaction tx, Dictionary<string, int> queuePriorities)
         {
-            var jobs = await GetEnqueuedJobs(conn, tx, queuePriorities, 1);
+            var jobs = await GetEnqueuedJobs(conn, queuePriorities, 1);
             var enqueuedJob = jobs.FirstOrDefault();
                 
             var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
