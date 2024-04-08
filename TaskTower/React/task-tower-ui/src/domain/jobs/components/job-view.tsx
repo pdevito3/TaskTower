@@ -2,24 +2,45 @@
 // import { JobStatus } from "@/domain/jobs/types";
 import { Badge } from "@/components/badge";
 import { JsonSyntaxHighlighter } from "@/components/json-syntax-highlighter";
+import { Notification } from "@/components/notifications";
+import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { JobStatusBadge } from "@/domain/jobs/components/job-status";
 import { JobStatus, TaskTowerJobView } from "@/domain/jobs/types";
 import { cn } from "@/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { CheckIcon, XCircle } from "lucide-react";
+import { useRequeueJob } from "../apis/requeue-job";
 
 export function JobView({ jobData }: { jobData: TaskTowerJobView }) {
   const job = jobData.job;
 
+  const requeueJobsApi = useRequeueJob();
+  function handleRequeueJobs() {
+    requeueJobsApi
+      .mutateAsync(job.id)
+      .then(() => {
+        Notification.success("Job requeued successfully");
+      })
+      .catch((e) => {
+        Notification.error("There was an error requeuing this job");
+        console.error(e);
+      });
+  }
+
   return (
     <div className="">
       <div className="pt-3">
-        <div className="flex items-center justify-start w-full space-x-4">
-          <h1 className="flex items-center justify-start text-4xl font-bold tracking-tight scroll-m-20">
-            {job?.jobName}
-          </h1>
-          {job && <JobStatusBadge status={job?.status as JobStatus} />}
+        <div className="flex items-center justify-between w-full space-x-4">
+          <div className="flex items-center justify-start w-full space-x-4">
+            <h1 className="flex items-center justify-start text-4xl font-bold tracking-tight scroll-m-20">
+              {job?.jobName}
+            </h1>
+            {job && <JobStatusBadge status={job?.status as JobStatus} />}
+          </div>
+          <Button variant="outline" onClick={() => handleRequeueJobs()}>
+            Requeue
+          </Button>
         </div>
         <div
           className={cn(

@@ -74,7 +74,7 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository, IJob
     }
     
     public sealed record BulkDeleteJobsRequest(Guid[] JobIds);
-    [HttpPost("bulk")]
+    [HttpPost("bulkDelete")]
     [ApiExplorerSettings(IgnoreApi = true)]
     public async Task<IActionResult> BulkDeleteJobs([FromBody] BulkDeleteJobsRequest request)
     {
@@ -88,5 +88,13 @@ public class JobsController(ITaskTowerJobRepository taskTowerJobRepository, IJob
     {
         var jobView = await jobViewer.GetJobView(jobId);
         return Ok(jobView);
+    }
+    
+    [HttpPut("{jobId:guid}/requeue")]
+    [ApiExplorerSettings(IgnoreApi = true)]
+    public async Task<IActionResult> RequeueJob(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        await taskTowerJobRepository.RequeueJob(jobId, cancellationToken);
+        return NoContent();
     }
 }

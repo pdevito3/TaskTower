@@ -5,9 +5,15 @@ using Configurations;
 using Dapper;
 using Database;
 using Dtos;
+using Exceptions;
+using JobStatuses;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Resources;
+using RunHistories;
+using RunHistories.Models;
+using RunHistories.Services;
+using RunHistoryStatuses;
 
 public interface ITaskTowerJobRepository
 {
@@ -20,6 +26,7 @@ public interface ITaskTowerJobRepository
     Task<List<string>> GetQueueNames(CancellationToken cancellationToken = default);
     Task BulkDeleteJobs(Guid[] jobIds, CancellationToken cancellationToken = default);
     Task<TaskTowerJobWithTagsView?> GetJobView(Guid jobId, CancellationToken cancellationToken = default);
+    Task RequeueJob(Guid jobId, CancellationToken cancellationToken = default);
 }
 
 internal class TaskTowerJobRepository(IOptions<TaskTowerOptions> options) : ITaskTowerJobRepository
@@ -223,5 +230,64 @@ GROUP BY j.id",
             new {JobId = jobId});
         
         return job;
+    }
+
+    public async Task RequeueJob(Guid jobId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = new NpgsqlConnection(options.Value.ConnectionString);
+        await conn.OpenAsync(cancellationToken);
+
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+        var job = await conn.QueryFirstOrDefaultAsync<TaskTowerJob>(
+            $@"
+SELECT id as Id,  
+       queue as Queue, 
+       status as Status, 
+       type as Type, 
+       method as Method, 
+       parameter_types as ParameterTypes, 
+       payload as Payload, 
+       retries as Retries, 
+       max_retries as MaxRetries, 
+       run_after as RunAfter, 
+       ran_at as RanAt, 
+       created_at as CreatedAt, 
+       deadline as Deadline,
+       context_parameters as RawContextParameters
+FROM {MigrationConfig.SchemaName}.jobs
+WHERE id = @Id
+FOR UPDATE SKIP LOCKED
+LIMIT 1",
+            new { Id = jobId },
+            transaction: tx);
+
+        if (job == null)
+        {
+            throw new TaskTowerJobNotFoundException();
+        }
+
+        job.Requeue();
+        var updateQuery = $"""
+                               UPDATE {MigrationConfig.SchemaName}.jobs
+                               SET status = @Status,
+                                   run_after = @RunAfter,
+                                   retries = @Retries,
+                                   max_retries = @MaxRetries
+                               WHERE id = @Id;
+                           """;
+        await conn.ExecuteAsync(updateQuery, new
+        {
+            Id = job.Id,
+            Status = job.Status.Value,
+            RunAfter = job.RunAfter,
+            Retries = job.Retries,
+            MaxRetries = job.MaxRetries,
+        }, transaction: tx);
+        
+        var jobHistory = RunHistory.Create(job.Id, RunHistoryStatus.Requeued());
+        await JobRunHistoryRepository.AddRunHistory(conn, jobHistory, tx);
+
+        await tx.CommitAsync(cancellationToken);
     }
 }

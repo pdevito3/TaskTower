@@ -244,6 +244,17 @@ public class TaskTowerJob
         return this;
     }
     
+    internal TaskTowerJob Requeue()
+    {
+        Status = JobStatus.Enqueued();
+        RunAfter = DateTimeOffset.UtcNow;
+        Retries++;
+        // if (Retries >= MaxRetries)
+        //     MaxRetries++;
+        
+        return this;
+    } 
+    
     private TaskTowerJob BumpRetry()
     {
         if (Retries < MaxRetries)

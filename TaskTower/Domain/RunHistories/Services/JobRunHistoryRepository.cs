@@ -44,4 +44,13 @@ order by rh.occurred_at desc,
         
         return runHistoryView.ToList();
     }
+
+    internal static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)
+    {
+        await conn.ExecuteAsync(
+            $"INSERT INTO {MigrationConfig.SchemaName}.run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
+            new { runHistory.Id, runHistory.JobId, Status = runHistory.Status.Value, runHistory.Comment, runHistory.Details, runHistory.OccurredAt },
+            transaction: tx
+        );
+    }
 }

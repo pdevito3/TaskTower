@@ -9,6 +9,8 @@ using Domain.InterceptionStages;
 using Domain.JobStatuses;
 using Domain.RunHistories;
 using Domain.RunHistories.Models;
+using Domain.RunHistories.Services;
+using Domain.RunHistoryStatuses;
 using Domain.TaskTowerJob;
 using Exceptions;
 using Interception;
@@ -160,7 +162,7 @@ WHERE id in ({commaSeparatedSingleQuotedJobIds})";
         var runHistoriesToCreate = processingJobsList.Select(jobId => RunHistory.Create(new RunHistoryForCreation()
         {
             JobId = jobId,
-            Status = JobStatus.Enqueued(),
+            Status = RunHistoryStatus.Enqueued(),
             Comment = reason
         }))?.ToList() ?? new List<RunHistory>();
         var anonymousRunHistories = runHistoriesToCreate.Select(x => new
@@ -559,10 +561,10 @@ LIMIT 1",
                 var runHistory = RunHistory.Create(new RunHistoryForCreation()
                 {
                     JobId = job.Id,
-                    Status = JobStatus.Completed(),
+                    Status = RunHistoryStatus.Completed(),
                     OccurredAt = nowDone
                 });
-                await AddRunHistory(conn, runHistory, tx);
+                await JobRunHistoryRepository.AddRunHistory(conn, runHistory, tx);
             }
             catch (Exception ex)
             {
@@ -652,12 +654,12 @@ LIMIT 1",
         var runHistory = RunHistory.Create(new RunHistoryForCreation()
         {
             JobId = job.Id,
-            Status = JobStatus.Failed(),
+            Status = RunHistoryStatus.Failed(),
             Comment = ex.Message,
             Details = ex.StackTrace,
             OccurredAt = job.RanAt ?? DateTimeOffset.UtcNow
         });
-        await AddRunHistory(conn, runHistory, tx);
+        await JobRunHistoryRepository.AddRunHistory(conn, runHistory, tx);
                 
         _logger.LogError("Job {JobId} failed because of {Reasons}", job.Id, ex.Message);
                 
@@ -681,10 +683,10 @@ LIMIT 1",
         var runHistoryProcessing = RunHistory.Create(new RunHistoryForCreation()
         {
             JobId = job.Id,
-            Status = JobStatus.Processing(),
+            Status = RunHistoryStatus.Processing(),
             OccurredAt = nowProcessing
         });
-        await AddRunHistory(conn, runHistoryProcessing, tx);
+        await JobRunHistoryRepository.AddRunHistory(conn, runHistoryProcessing, tx);
     }
 
     private IServiceProvider PerformPreprocessing(IServiceProvider serviceProvider, TaskTowerJob job)
@@ -730,15 +732,6 @@ LIMIT 1",
         }
 
         return serviceProvider;
-    }
-
-    private static async Task AddRunHistory(NpgsqlConnection conn, RunHistory runHistory, NpgsqlTransaction tx)
-    {
-        await conn.ExecuteAsync(
-            $"INSERT INTO {MigrationConfig.SchemaName}.run_histories(id, job_id, status, comment, details, occurred_at) VALUES (@Id, @JobId, @Status, @Comment, @Details, @OccurredAt)",
-            new { runHistory.Id, runHistory.JobId, Status = runHistory.Status.Value, runHistory.Comment, runHistory.Details, runHistory.OccurredAt },
-            transaction: tx
-        );
     }
 
     public override void Dispose()
