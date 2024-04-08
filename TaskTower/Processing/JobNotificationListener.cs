@@ -51,7 +51,7 @@ public class JobNotificationListener : BackgroundService
         _logger.LogDebug("Task Tower worker is using a concurrency level of {Concurrency}", _options.BackendConcurrency);
         using var scope = _serviceScopeFactory.CreateScope();
 
-        await ResetMidProcessingJobs(stoppingToken);
+        // await ResetMidProcessingJobs(stoppingToken);
         
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
@@ -279,7 +279,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         try
         {
             var queuePrioritization = _options.QueuePrioritization;
-            var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn, tx, 
+            var scheduledJobs = await queuePrioritization.GetJobsToEnqueue(conn,
                 _options.QueuePriorities);
             var scheduledJobsList = scheduledJobs?.ToList() ?? new List<TaskTowerJob>();
             
@@ -358,7 +358,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         var queuePrioritization = _options.QueuePrioritization;
-        var job = await queuePrioritization.GetJobToRun(conn, tx, _options.QueuePriorities);
+        var job = await queuePrioritization.GetJobToRun(conn, _options.QueuePriorities);
         
         var errorDetails = new ErrorDetails(null, null, null);
         if (job != null)
