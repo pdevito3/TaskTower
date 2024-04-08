@@ -245,16 +245,17 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
         
         await using var tx = await conn.BeginTransactionAsync(stoppingToken);
         
-        var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
+        var enqueuedJobsList = new List<TaskTowerJob>();
         try
         {
-            // await tx.CommitAsync(stoppingToken);
-             await conn.ExecuteAsync($"""
-                                      /*
-                                       * {_announcingSqlComment}
-                                       */
-                                      COMMIT;
-                                      """, transaction: tx);
+            var enqueuedJobs = await _options.QueuePrioritization.GetEnqueuedJobs(conn, tx, queuePriorities, 8000);
+            var jobsList = enqueuedJobs?.ToList();
+            if (jobsList is not { Count: > 0 })
+            {
+                return;
+            }
+            _logger.LogDebug("Announcing {Count} jobs", jobsList.Count);
+            enqueuedJobsList = jobsList ?? new List<TaskTowerJob>();   
         }
         catch (Exception ex)
         {
@@ -270,7 +271,6 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             }
         }
         
-        var enqueuedJobsList = enqueuedJobs?.ToList() ?? new List<TaskTowerJob>();
         foreach (var enqueuedJob in enqueuedJobsList)
         {
             await using var connAnnounce = new NpgsqlConnection(_options.ConnectionString);
