@@ -51,7 +51,7 @@ public class JobNotificationListener : BackgroundService
         _logger.LogDebug("Task Tower worker is using a concurrency level of {Concurrency}", _options.BackendConcurrency);
         using var scope = _serviceScopeFactory.CreateScope();
 
-        // await ResetMidProcessingJobs(stoppingToken);
+        await ResetMidProcessingJobs(stoppingToken);
         
         await using var conn = new NpgsqlConnection(_options.ConnectionString);
         await conn.OpenAsync(stoppingToken);
