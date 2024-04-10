@@ -79,6 +79,28 @@ export function JobView({ jobData }: { jobData: TaskTowerJobView }) {
             {job?.queue ? job?.queue : "-"}
           </p>
         </div>
+        {job?.status === "Failed" && (
+          <div className="text-sm text-slate-800 flex items-center space-x-2">
+            <label htmlFor={`queue-${job?.queue}`} className="font-bold">
+              Next Run:
+            </label>
+            <time
+              dateTime={format(new Date(job.runAfter), "yyyy-MM-dd'T'HH:mm:ss")}
+              className="flex-none py-0.5 text-sm leading-5 text-gray-500"
+              aria-label={`Next Run: ${formatDistanceToNow(
+                new Date(job.runAfter)
+              )}`}
+              id={`next-run-in-${formatDistanceToNow(new Date(job.runAfter))}`}
+            >
+              {`${formatDistanceToNow(new Date(job.runAfter), {
+                addSuffix: true,
+              })} at ${format(
+                new Date(job.runAfter),
+                "yyyy-MM-dd'T'HH:mm:ss"
+              )}`}
+            </time>
+          </div>
+        )}
       </div>
 
       <div className="pt-3">

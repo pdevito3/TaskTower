@@ -124,7 +124,13 @@ export const createColumns = (): Columns[] => [
 
       const retriesRemaining = maxRetries - retries;
 
-      return <p>{retriesRemaining >= 0 ? `${retries}/${maxRetries}` : "—"}</p>;
+      return status === "Dead" || status === "Failed" ? (
+        <p>
+          {retries}/{maxRetries}
+        </p>
+      ) : (
+        <p>{retriesRemaining >= 0 ? `${retries}/${maxRetries}` : "—"}</p>
+      );
     },
   },
   {

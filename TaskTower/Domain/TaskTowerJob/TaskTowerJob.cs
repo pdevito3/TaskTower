@@ -238,7 +238,6 @@ public class TaskTowerJob
     {
         Status = JobStatus.Failed();
         RanAt = DateTimeOffset.UtcNow;
-        RunAfter = BackoffCalculator.CalculateBackoff(Retries);
         BumpRetry();
         
         return this;
@@ -258,7 +257,10 @@ public class TaskTowerJob
     private TaskTowerJob BumpRetry()
     {
         if (Retries < MaxRetries)
+        {
             Retries++;
+            RunAfter = BackoffCalculator.CalculateBackoff(Retries);
+        }
         
         if (Retries >= MaxRetries)
             Status = JobStatus.Dead();
