@@ -628,7 +628,7 @@ LIMIT 1",
             },
             transaction: tx
         );
-                
+        
         var runHistory = RunHistory.Create(new RunHistoryForCreation()
         {
             JobId = job.Id,
@@ -644,6 +644,14 @@ LIMIT 1",
         if (job.Status.IsDead())
         {
             _logger.LogError("Job {JobId} is dead", job.Id);
+            
+            var deadRunHistory = RunHistory.Create(new RunHistoryForCreation()
+            {
+                JobId = job.Id,
+                Status = RunHistoryStatus.Dead(),
+                OccurredAt = job.RanAt ?? DateTimeOffset.UtcNow
+            });
+            await JobRunHistoryRepository.AddRunHistory(conn, deadRunHistory, tx);
         }
         return new ErrorDetails(runHistory.Comment, runHistory.Details, runHistory.OccurredAt);
     }
