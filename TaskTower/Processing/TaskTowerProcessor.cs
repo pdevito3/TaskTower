@@ -21,7 +21,7 @@ using Microsoft.Extensions.Options;
 using Npgsql;
 using Utils;
 
-public class JobNotificationListener : BackgroundService
+public class TaskTowerProcessor : BackgroundService
 {
     private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly SemaphoreSlim _semaphore;
@@ -29,7 +29,7 @@ public class JobNotificationListener : BackgroundService
     private readonly ILogger _logger;
     private readonly Guid _workerId = Guid.NewGuid();
     
-    public JobNotificationListener(IServiceScopeFactory serviceScopeFactory, ILogger<JobNotificationListener> logger)
+    public TaskTowerProcessor(IServiceScopeFactory serviceScopeFactory, ILogger<TaskTowerProcessor> logger)
     {
         _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
@@ -102,17 +102,11 @@ public class JobNotificationListener : BackgroundService
         _ = AnnouncingEnqueuedJobsAsync(enqueuedJobsTimer, stoppingToken);
         _ = PollingScheduledJobsAsync(scheduledJobsTimer, stoppingToken);
 
-        // // Keep the service running until a cancellation request is received
         while (!stoppingToken.IsCancellationRequested)
         {
             // This call is blocking until a notification is received
             await conn.WaitAsync(stoppingToken);
         }
-        // }
-        // catch (Exception ex)
-        // {
-        //     _logger.LogError(ex, "An error occurred while processing job notifications");
-        // }
     }
 
     private async Task ResetMidProcessingJobs(CancellationToken stoppingToken)
@@ -181,23 +175,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             transaction: tx
         );
 
-        try
-        {
-            await tx.CommitAsync(stoppingToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while committing transaction for requeuing jobs");
-
-            try
-            {
-                await tx.RollbackAsync(stoppingToken);
-            }
-            catch (Exception rollbackEx)
-            {
-                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for requeuing jobs");
-            }
-        }
+        await CommitOrRollback(tx, "requeuing jobs", stoppingToken);
     }
 
     private TimeSpan NormalizeInterval(TimeSpan interval)
@@ -331,23 +309,7 @@ VALUES (@Id, @JobId, @Status, @Comment, @OccurredAt)",
             _logger.LogError(ex, "An error occurred while enqueuing scheduled jobs");
         }
         
-        try
-        {
-            await tx.CommitAsync(stoppingToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "An error occurred while committing transaction for enqueuing jobs");
-
-            try
-            {
-                await tx.RollbackAsync(stoppingToken);
-            }
-            catch (Exception rollbackEx)
-            {
-                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for enqueuing jobs");
-            }
-        }
+        await CommitOrRollback(tx, "enqueuing jobs", stoppingToken);
     }
 
     private async Task<Guid?> MarkJobAsProcessing(IServiceProvider serviceProvider, CancellationToken stoppingToken)
@@ -718,6 +680,27 @@ LIMIT 1",
         }
 
         return serviceProvider;
+    }
+
+    private async Task CommitOrRollback(NpgsqlTransaction tx, string action, CancellationToken stoppingToken)
+    {
+        try
+        {
+            await tx.CommitAsync(stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "An error occurred while committing transaction for {Action}", action);
+
+            try
+            {
+                await tx.RollbackAsync(stoppingToken);
+            }
+            catch (Exception rollbackEx)
+            {
+                _logger.LogError(rollbackEx, "An error occurred during transaction rollback for {Action}", action);
+            }
+        }
     }
 
     public override void Dispose()

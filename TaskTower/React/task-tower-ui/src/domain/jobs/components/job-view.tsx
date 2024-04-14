@@ -52,6 +52,7 @@ export function JobView({ jobData }: { jobData: TaskTowerJobView }) {
             return <Badge text={tag} variant="gray" />;
           })}
         </div>
+
         <div className="text-sm text-slate-800 items-center space-x-2 group inline-flex">
           <label htmlFor={`id-${job?.id}`} className="font-bold">
             Id:
@@ -79,6 +80,7 @@ export function JobView({ jobData }: { jobData: TaskTowerJobView }) {
             {job?.queue ? job?.queue : "-"}
           </p>
         </div>
+
         {job?.status === "Failed" && (
           <div className="text-sm text-slate-800 flex items-center space-x-2">
             <label htmlFor={`queue-${job?.queue}`} className="font-bold">

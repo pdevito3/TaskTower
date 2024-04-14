@@ -70,7 +70,7 @@ public static class TaskTowerServiceRegistration
 
         services.AddCorsService("TaskTowerCorsPolicy");
         services.AddHostedService<MigrationHostedService>();
-        services.AddHostedService<JobNotificationListener>();
+        services.AddHostedService<TaskTowerProcessor>();
 
         services.AddControllers().PartManager.ApplicationParts.Add(new AssemblyPart(typeof(JobsController).Assembly));
 
