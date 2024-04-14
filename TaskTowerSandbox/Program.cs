@@ -16,14 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .MinimumLevel.Override("MassTransit", LogEventLevel.Debug)
-    .MinimumLevel.Override("TaskTower", LogEventLevel.Debug)
+    .MinimumLevel.Override("TaskTower", LogEventLevel.Information)
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.Hosting", LogEventLevel.Information)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
     .Enrich.WithProperty("ApplicationName", builder.Environment.ApplicationName)
     .Enrich.FromLogContext()
-    // .Destructure.UsingAttributes()
     .WriteTo.Console(theme: AnsiConsoleTheme.Code)
     .CreateLogger();
 builder.Host.UseSerilog();
@@ -44,17 +43,13 @@ builder.Services.AddScoped<IJobContextAccessor, JobContextAccessor>();
 builder.Services.AddScoped<IJobWithUserContext, JobWithUserContext>();
 builder.Services.AddTaskTower(builder.Configuration,x =>
 {
-    x.ConnectionString = TaskTowerConstants.ConnectionString;
+    x.ConnectionString = "Host=localhost;Port=41444;Database=dev_hello_task_tower_sandbox;Username=postgres;Password=postgres;Pooling=true;MinPoolSize=1;MaxPoolSize=10000;";
     x.BackendConcurrency = 5;
     x.QueuePriorities = new Dictionary<string, int>
     {
         {"critical", 3},
         {"default", 2},
         {"low", 1}
-        
-        // {"high", 60},
-        // {"default", 30},
-        // {"low", 10}
     };
     x.QueuePrioritization = QueuePrioritization.Strict();
     // x.IdleTransactionTimeout = 1000;

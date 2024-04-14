@@ -37,25 +37,6 @@ public class TaskTowerOptions
     /// The number of milliseconds a postgres transaction may idle before the connection is killed
     /// </summary>
     public int IdleTransactionTimeout { get; set; } = 30000;
-    
-    // TODO implement this
-    /// <summary>
-    /// Duration to wait for jobs to finish during shutdown
-    /// </summary>
-    public TimeSpan ShutdownTimeout { get; set; }
-
-    // TODO implement this?
-    /// <summary>
-    /// Enable synchronous commits (increases durability, decreases performance) when using postgres
-    /// </summary>
-    public bool SynchronousCommit { get; set; } = false;
-    
-    // TODO add docs about setting like conStr = "Server=192.168.1.10;Port=5434;UserId=testuser;Password=1234;Database=testdb;Timeout=5;"
-    // // TODO implement this?
-    // /// <summary>
-    // /// The amount of time to wait for a connection to become available before timing out
-    // /// </summary>
-    // public TimeSpan PgConnectionTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <summary>
     /// Outlines the queues that will be used along their respective priorities
