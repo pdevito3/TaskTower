@@ -7,7 +7,7 @@ import { JobKeys } from "./job.keys";
 export const getJobView = async (jobId: string) => {
   const url = isStandaloneEnv()
     ? `http://localhost:5130/api/v1/jobs/${jobId}/view`
-    : `/api/v1/jobs/view`;
+    : `/api/v1/jobs/${jobId}/view`;
   return axios
     .get(url)
     .then((response: AxiosResponse<TaskTowerJobView>) => response.data);
