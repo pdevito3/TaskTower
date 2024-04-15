@@ -1,10 +1,22 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
+        <TargetFrameworks>net8.0;</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <InvariantGlobalization>true</InvariantGlobalization>
+
+        <PackageId>TaskTower</PackageId>
+        <PackageTags>TaskTower;BackgroundJob;Hangfire</PackageTags>
+        <Version>0.1.0</Version>
+        <Authors>Paul DeVito</Authors>
+        <Summary>Simple, reliable and efficient background jobs in .NET - an alternative to HangFire</Summary>
+        <Description>Simple, reliable and efficient background jobs in .NET - an alternative to HangFire</Description>
+        <RepositoryUrl>https://github.com/pdevito3/TaskTower</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>Dual</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
     </PropertyGroup>
 
     <ItemGroup>
