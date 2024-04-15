@@ -7,7 +7,7 @@ export function IndexPage() {
         <Helmet>
           <title>Dashboard</title>
         </Helmet>
-        Hello dashboard
+        Coming soon...
       </div>
     </>
   );

@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharedKernel", "SharedKernel\SharedKernel.csproj", "{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HelloPgPubSub", "HelloPgPubSub\HelloPgPubSub.csproj", "{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TaskTowerSandbox", "TaskTowerSandbox\TaskTowerSandbox.csproj", "{DF00BFCD-1C54-423D-B41F-7AAD3A99C356}"
@@ -20,10 +18,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3763FA74-DFCA-463C-B3B6-BDF06E95F28D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3BC28877-9685-49D8-8E35-FF9C0A8E19A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
