@@ -11,7 +11,7 @@ reduce polling frequency and enable immediate message delivery.
 > [!IMPORTANT]  
 > Task Tower is currently in development and is subject to change. Current major version is zero (v0.x.x) to 
 > accommodate rapid development and fast iteration while getting early feedback from users (feedback on APIs and bugs 
-> are appreciated!). There may be bugs and public API could change without a major version update before a stable v1.0.0 release.
+> are appreciated!). There may be bugs and the public API could change without a major version update before a stable v1.0.0 release.
 
 
 ## Features
