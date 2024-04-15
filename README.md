@@ -36,11 +36,9 @@ reduce polling frequency and enable immediate message delivery.
 - Ensure stability
 
 ## Quick Start
-1. `dotnet new web -n MyTaskTowerApp`
-2. `cd MyTaskTowerApp`
-3. Add the Task Tower nuget package `dotnet add package TaskTower`
-4. Add TestContainers for easy Postgres usage `dotnet add Testcontainers.PostgreSql` (or just use a local db)
-5. Update your `Program.cs` to use Task Tower
+1. Add the Task Tower nuget package `dotnet add package TaskTower`
+2. Add TestContainers for easy Postgres usage `dotnet add Testcontainers.PostgreSql` (or just use a local db)
+3. Update your `Program.cs` to use Task Tower
 
 ```csharp
 using DotNet.Testcontainers.Builders;
@@ -92,9 +90,9 @@ finally
     await dbContainer.StopAsync();
 }
 ```
-5. Run your app `dotnet run`
-6. Navigate to `/swagger` and hit the `/console-log` endpoint to enqueue a job
-7. Check the console to see the response and go to `/task-tower` to see the Task Tower UI
+4. Run your app `dotnet run`
+5. Navigate to `/swagger` and hit the `/console-log` endpoint to enqueue a job
+6. Check the console to see the response and go to `/task-tower` to see the Task Tower UI
 
 ## Setup
 1. Install the Task Tower NuGet package `dotnet add package TaskTower`
