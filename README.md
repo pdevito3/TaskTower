@@ -37,7 +37,7 @@ reduce polling frequency and enable immediate message delivery.
 
 ## Quick Start
 1. Add the Task Tower nuget package `dotnet add package TaskTower`
-2. Add TestContainers for easy Postgres usage `dotnet add Testcontainers.PostgreSql` (or just use a local db)
+2. Add TestContainers for easy Postgres usage `dotnet add package Testcontainers.PostgreSql` (or just use a local db)
 3. Update your `Program.cs` to use Task Tower
 
 ```csharp
