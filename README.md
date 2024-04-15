@@ -92,7 +92,7 @@ finally
 ```
 4. Run your app `dotnet run`
 5. Navigate to `/swagger` and hit the `/console-log` endpoint to enqueue a job
-6. Check the console to see the response and go to `/task-tower` to see the Task Tower UI
+6. Check the console to see the response and go to `/task-tower/jobs` to see the Task Tower UI
 
 ## Setup
 1. Install the Task Tower NuGet package `dotnet add package TaskTower`
