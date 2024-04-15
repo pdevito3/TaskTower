@@ -148,7 +148,7 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
 ```
 
 > [!NOTE]  
-> Check intervals have a hard coded minimum of 500ms
+> Check intervals have a hard coded minimum of that can not me less than 500ms
 
 ## How Task Tower Works
 
@@ -168,15 +168,14 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
 Task Tower comes with a rich, modern Web UI that provides easy and in depth visibility into your background jobs. 
 It's currently still early, but will be expanded leading up to a stable v1 release.
 
-A jobs worklist:
-![Screenshot 2024-04-14 at 12.06.04 PM.png](..%2F..%2F..%2F..%2Fvar%2Ffolders%2Fkt%2Fjhdqwb757p3f9djgw6m6s09h0000gn%2FT%2FTemporaryItems%2FNSIRD_screencaptureui_khPyCh%2FScreenshot%202024-04-14%20at%2012.06.04%E2%80%AFPM.png)
+A jobs worklist:![Screenshot 2024-04-14 at 9.00.05 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.00.05 PM.png)
 
-View job details:
-![Screenshot 2024-04-14 at 12.06.28 PM.png](..%2F..%2F..%2F..%2Fvar%2Ffolders%2Fkt%2Fjhdqwb757p3f9djgw6m6s09h0000gn%2FT%2FTemporaryItems%2FNSIRD_screencaptureui_bszEjN%2FScreenshot%202024-04-14%20at%2012.06.28%E2%80%AFPM.png)
+View job details:![Screenshot 2024-04-14 at 9.00.36 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.00.36 PM.png)
 
-![Screenshot 2024-04-14 at 12.06.56 PM.png](..%2F..%2F..%2F..%2Fvar%2Ffolders%2Fkt%2Fjhdqwb757p3f9djgw6m6s09h0000gn%2FT%2FTemporaryItems%2FNSIRD_screencaptureui_QkjzhO%2FScreenshot%202024-04-14%20at%2012.06.56%E2%80%AFPM.png)
+![Screenshot 2024-04-14 at 9.02.03 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.02.03 PM.png)
 
 ## Enqueuing Jobs
+
 Jobs can be enqueued using the `IBackgroundJobClient` interface using several different methods.
 
 ### Enqueued Jobs
