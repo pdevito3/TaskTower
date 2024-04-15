@@ -168,11 +168,13 @@ builder.Services.AddTaskTower(builder.Configuration,x =>
 Task Tower comes with a rich, modern Web UI that provides easy and in depth visibility into your background jobs. 
 It's currently still early, but will be expanded leading up to a stable v1 release.
 
-A jobs worklist:![Screenshot 2024-04-14 at 9.00.05 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.00.05 PM.png)
+A jobs worklist:
+![jobs-worklist.png](DocAssets%2Fjobs-worklist.png)
 
-View job details:![Screenshot 2024-04-14 at 9.00.36 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.00.36 PM.png)
+View job details:
+![success-job-view.png](DocAssets%2Fsuccess-job-view.png)
 
-![Screenshot 2024-04-14 at 9.02.03 PM](/Users/paul/Desktop/Screenshot 2024-04-14 at 9.02.03 PM.png)
+![dead-job-view.png](DocAssets%2Fdead-job-view.png)
 
 ## Enqueuing Jobs
 
